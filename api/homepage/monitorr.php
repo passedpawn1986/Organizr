@@ -2,13 +2,19 @@
 
 trait MonitorrHomepageItem
 {
-	public function monitorrSettingsArray()
+	public function monitorrSettingsArray($infoOnly = false)
 	{
-		return array(
+		$homepageInformation = [
 			'name' => 'Monitorr',
 			'enabled' => true,
 			'image' => 'plugins/images/tabs/monitorr.png',
 			'category' => 'Monitor',
+			'settingsArray' => __FUNCTION__
+		];
+		if ($infoOnly) {
+			return $homepageInformation;
+		}
+		$homepageSettings = array(
 			'settings' => array(
 				'Enable' => array(
 					array(
@@ -67,6 +73,7 @@ trait MonitorrHomepageItem
 				),
 			)
 		);
+		return array_merge($homepageInformation, $homepageSettings);
 	}
 	
 	public function monitorrHomepagePermissions($key = null)
@@ -118,7 +125,8 @@ trait MonitorrHomepageItem
 		$url = $this->qualifyURL($this->config['monitorrURL']);
 		$dataUrl = $url . '/assets/php/loop.php';
 		try {
-			$response = Requests::get($dataUrl, ['Token' => $this->config['organizrAPI']], []);
+			$options = $this->requestOptions($this->config['monitorrURL'], false, $this->config['homepageMonitorrRefresh']);
+			$response = Requests::get($dataUrl, ['Token' => $this->config['organizrAPI']], $options);
 			if ($response->success) {
 				$html = html_entity_decode($response->body);
 				// This section grabs the names of all services by regex
@@ -127,25 +135,24 @@ trait MonitorrHomepageItem
 				$servicePattern = '/<div id="servicetitle(?:offline|nolink)?".*><div>(.*)<\/div><\/div><div class="(?:btnonline|btnoffline|btnunknown)".*>(Online|Offline|Unresponsive)<\/div>(:?<\/a>)?<\/div><\/div>/';
 				preg_match_all($servicePattern, $html, $servicesMatch);
 				$services = array_filter($servicesMatch[1]);
-                $status = array_filter($servicesMatch[2]);
+				$status = array_filter($servicesMatch[2]);
 				$statuses = [];
 				foreach ($services as $key => $service) {
 					$match = $status[$key];
 					$statuses[$service] = $match;
-                    if ($match == 'Online') {
-                        $statuses[$service] = [
-                            'status' => true
-                        ];
-                    } else if ($match == 'Offline') {
-                        $statuses[$service] = [
-                            'status' => false
-                        ];
-                    } else if ($match == 'Unresponsive') {
-                        $statuses[$service] = [
-                            'status' => 'unresponsive'
-                        ];
-                    }
-
+					if ($match == 'Online') {
+						$statuses[$service] = [
+							'status' => true
+						];
+					} else if ($match == 'Offline') {
+						$statuses[$service] = [
+							'status' => false
+						];
+					} else if ($match == 'Unresponsive') {
+						$statuses[$service] = [
+							'status' => 'unresponsive'
+						];
+					}
 					$statuses[$service]['sort'] = $key;
 					$imageMatch = [];
 					$imgPattern = '/assets\/img\/\.\.(.*)" class="serviceimg" alt=.*><\/div><\/div><div id="servicetitle"><div>' . $service . '|assets\/img\/\.\.(.*)" class="serviceimg imgoffline" alt=.*><\/div><\/div><div id="servicetitleoffline".*><div>' . $service . '|assets\/img\/\.\.(.*)" class="serviceimg" alt=.*><\/div><\/div><div id="servicetitlenolink".*><div>' . $service . '/';
@@ -162,12 +169,13 @@ trait MonitorrHomepageItem
 					$ext = $ext[key(array_slice($ext, -1, 1, true))];
 					$imageUrl = $url . '/assets' . $image;
 					$cacheDirectory = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'plugins' . DIRECTORY_SEPARATOR . 'images' . DIRECTORY_SEPARATOR . 'cache' . DIRECTORY_SEPARATOR;
-					$img = Requests::get($imageUrl, ['Token' => $this->config['organizrAPI']], []);
+					$options = $this->requestOptions($this->config['monitorrURL'], false, $this->config['homepageMonitorrRefresh']);
+					$img = Requests::get($imageUrl, ['Token' => $this->config['organizrAPI']], $options);
 					if ($img->success) {
 						$base64 = 'data:image/' . $ext . ';base64,' . base64_encode($img->body);
 						$statuses[$service]['image'] = $base64;
 					} else {
-						$statuses[$service]['image'] = $cacheDirectory . 'no-list.png';
+						$statuses[$service]['image'] = 'plugins/images/cache/no-list.png';
 					}
 					$linkMatch = [];
 					$linkPattern = '/<a class="servicetile" href="(.*)" target="_blank" style="display: block"><div id="serviceimg"><div><img id="' . strtolower($service) . '-service-img/';

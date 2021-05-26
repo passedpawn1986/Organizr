@@ -352,7 +352,7 @@ trait NormalFunctions
 		}
 	}
 	
-	public function coookieSeconds($type, $name, $value = '', $ms, $http = true, $path = '/')
+	public function coookieSeconds($type, $name, $value = '', $ms = null, $http = true, $path = '/')
 	{
 		if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
 			$Secure = true;
@@ -477,7 +477,9 @@ trait NormalFunctions
 				$domain = $_SERVER['HTTP_HOST'];
 			}
 		}
-		$url = $protocol . $domain . str_replace("\\", "/", dirname($_SERVER['REQUEST_URI']));
+		$path = str_replace("\\", "/", dirname($_SERVER['REQUEST_URI']));
+		$path = ($path !== '.') ? $path : '';
+		$url = $protocol . $domain . $path;
 		if (strpos($url, '/api') !== false) {
 			$url = explode('/api', $url);
 			return $url[0] . '/';
@@ -545,6 +547,20 @@ trait NormalFunctions
 		$size = array('B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB');
 		$factor = floor((strlen($bytes) - 1) / 3);
 		return sprintf("%.{$dec}f %s", $bytes / (1024 ** $factor), $size[$factor]);
+	}
+	
+	public function json_validator($data = null)
+	{
+		if (!empty($data)) {
+			@json_decode($data);
+			return (json_last_error() === JSON_ERROR_NONE);
+		}
+		return false;
+	}
+	
+	public function replace_first($search_str, $replacement_str, $src_str)
+	{
+		return (false !== ($pos = strpos($src_str, $search_str))) ? substr_replace($src_str, $replacement_str, $pos, strlen($search_str)) : $src_str;
 	}
 }
 

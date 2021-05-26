@@ -2,13 +2,19 @@
 
 trait UnifiHomepageItem
 {
-	public function unifiSettingsArray()
+	public function unifiSettingsArray($infoOnly = false)
 	{
-		return array(
-			'name' => 'Unifi',
+		$homepageInformation = [
+			'name' => 'UniFi',
 			'enabled' => true,
-			'image' => 'plugins/images/tabs/ubnt.png',
+			'image' => 'plugins/images/tabs/unifi.png',
 			'category' => 'Monitor',
+			'settingsArray' => __FUNCTION__
+		];
+		if ($infoOnly) {
+			return $homepageInformation;
+		}
+		$homepageSettings = array(
 			'settings' => array(
 				'Enable' => array(
 					array(
@@ -91,6 +97,7 @@ trait UnifiHomepageItem
 				)
 			)
 		);
+		return array_merge($homepageInformation, $homepageSettings);
 	}
 	
 	public function unifiHomepagePermissions($key = null)

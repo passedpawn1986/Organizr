@@ -2,13 +2,19 @@
 
 trait WeatherHomepageItem
 {
-	public function weatherSettingsArray()
+	public function weatherSettingsArray($infoOnly = false)
 	{
-		return array(
+		$homepageInformation = [
 			'name' => 'Weather-Air',
 			'enabled' => true,
 			'image' => 'plugins/images/tabs/wind.png',
 			'category' => 'Monitor',
+			'settingsArray' => __FUNCTION__
+		];
+		if ($infoOnly) {
+			return $homepageInformation;
+		}
+		$homepageSettings = array(
 			'settings' => array(
 				'Enable' => array(
 					array(
@@ -115,6 +121,7 @@ trait WeatherHomepageItem
 				),
 			)
 		);
+		return array_merge($homepageInformation, $homepageSettings);
 	}
 	
 	public function weatherHomepagePermissions($key = null)
@@ -190,7 +197,7 @@ trait WeatherHomepageItem
 			'pollen' => false
 		);
 		$apiURL = $this->qualifyURL('https://api.breezometer.com/');
-		$info = '&lat=' . $this->config['homepageWeatherAndAirLatitude'] . '&lon=' . $this->config['homepageWeatherAndAirLongitude'] . '&units=' . $this->config['homepageWeatherAndAirUnits'] . '&key=b7401295888443538a7ebe04719c8394';
+		$info = '&lat=' . $this->config['homepageWeatherAndAirLatitude'] . '&lon=' . $this->config['homepageWeatherAndAirLongitude'] . '&units=' . $this->config['homepageWeatherAndAirUnits'] . '&key=' . $this->config['breezometerToken'];
 		try {
 			$headers = array();
 			$options = array();

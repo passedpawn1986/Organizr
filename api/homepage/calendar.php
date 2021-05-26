@@ -2,13 +2,19 @@
 
 trait CalendarHomepageItem
 {
-	public function calendarSettingsArray()
+	public function calendarSettingsArray($infoOnly = false)
 	{
-		return array(
-			'name' => 'Calendar',
+		$homepageInformation = [
+			'name' => 'iCal',
 			'enabled' => strpos('personal', $this->config['license']) !== false,
 			'image' => 'plugins/images/tabs/calendar.png',
 			'category' => 'HOMEPAGE',
+			'settingsArray' => __FUNCTION__
+		];
+		if ($infoOnly) {
+			return $homepageInformation;
+		}
+		$homepageSettings = array(
 			'settings' => array(
 				'Enable' => array(
 					array(
@@ -92,6 +98,7 @@ trait CalendarHomepageItem
 				),
 			)
 		);
+		return array_merge($homepageInformation, $homepageSettings);
 	}
 	
 	public function calendarHomepagePermissions($key = null)
@@ -126,7 +133,8 @@ trait CalendarHomepageItem
 			$this->homepageItemPermissions($this->lidarrHomepagePermissions('calendar')) ||
 			$this->homepageItemPermissions($this->sickrageHomepagePermissions('calendar')) ||
 			$this->homepageItemPermissions($this->couchPotatoHomepagePermissions('calendar')) ||
-			$this->homepageItemPermissions($this->calendarHomepagePermissions('calendar'))
+			$this->homepageItemPermissions($this->traktHomepagePermissions('calendar')) ||
+			$this->homepageItemPermissions($this->calendarHomepagePermissions('main'))
 		) {
 			return '
 				<div id="' . __FUNCTION__ . '">
@@ -171,6 +179,10 @@ trait CalendarHomepageItem
 		unset($items);
 		// COUCHPOTATO CONNECT
 		$items = $this->getCouchPotatoCalendar();
+		$calendarItems = is_array($items) ? array_merge($calendarItems, $items) : $calendarItems;
+		unset($items);
+		// TRAKT CONNECT
+		$items = $this->getTraktCalendar();
 		$calendarItems = is_array($items) ? array_merge($calendarItems, $items) : $calendarItems;
 		unset($items);
 		// iCal URL

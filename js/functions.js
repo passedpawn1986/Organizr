@@ -14,6 +14,7 @@ lang.init({
 	allowCookieOverride: true
 });
 var OAuthLoginNeeded = false;
+var directToHash = false;
 var pingOrg = false;
 var timeouts = {};
 var increment = 0;
@@ -416,6 +417,7 @@ function getDefault(tabName,tabType){
 		var hashTab = getHash();
 		var hashType = getTabType(hashTab);
 		if (typeof hashTab !== 'undefined' && typeof hashType !== 'undefined') {
+			directToHash = true;
 			switchTab(hashTab,hashType);
 		}else{
 			console.warn("Tab Function: "+hashTab+" is not a defined tab");
@@ -498,16 +500,18 @@ function cleanClass(string){
 // What the hell is this?  I don't remember this lol
 function noTabs(arrayItems){
 	if (arrayItems.data.user.loggedin === true) {
-		organizrConnect('api/?v1/no_tabs').success(function(data) {
-            try {
-                var response = JSON.parse(data);
-            }catch(e) {
-	            organizrCatchError(e,data);
-            }
-			console.log("Organizr Function: No Tabs Available");
-			$(response.data).appendTo($('.organizr-area'));
+		organizrAPI2('GET','api/v2/page/tabs').success(function(data) {
+			try {
+				var json = data.response;
+				organizrConsole('Organizr Function','No tabs available');
+				$(json.data).appendTo($('.organizr-area'));
+				$('.organizr-area').removeClass('hidden');
+				$("#preloader").fadeOut();
+			}catch(e) {
+				organizrCatchError(e,data);
+			}
 		}).fail(function(xhr) {
-			OrganizrApiError(xhr);
+			OrganizrApiError(xhr, 'Error');
 		});
 	}else {
 		$('.show-login').trigger('click');
@@ -667,14 +671,14 @@ function switchTab(tab, type, split = null){
 				newTab.addClass("show").removeClass('hidden');
                 setTabInfo(cleanClass(tab),'active',true);
 			}else{
-				$("#preloader").fadeIn();
+				//$("#preloader").fadeIn();
 				organizrConsole('Tab Function','Loading new tab for: '+tab);
 				$('#menu-'+tab+' a').children().addClass('tabLoaded');
 				newTab.addClass("show loaded").removeClass('hidden');
 				loadInternal(tabURL,cleanClass(tab), split);
                 setTabInfo(cleanClass(tab),'active',true);
                 setTabInfo(cleanClass(tab),'loaded',true);
-				$("#preloader").fadeOut();
+				//$("#preloader").fadeOut();
 			}
 			break;
 		case 1:
@@ -822,7 +826,7 @@ function reloadTab(tab, type){
 	$("#preloader").fadeOut();
 }
 function reloadCurrentTab(){
-	$("#preloader").fadeIn();
+	//$("#preloader").fadeIn();
 	organizrConsole('Tab Function','Reloading Current tab');
 	var iframe = $('.iFrame-listing').find('.show');
 	var internal = $('.internal-listing').find('.show');
@@ -862,7 +866,7 @@ function reloadCurrentTab(){
 		default:
 			console.error('Tab Function: Action not set');
 	}
-	$("#preloader").fadeOut();
+	//$("#preloader").fadeOut();
 }
 function loadNextTab(){
 	var next = $('#page-wrapper').find('.loaded').attr('data-name');
@@ -924,7 +928,7 @@ function closeCurrentTab(event){
 			organizrConsole('Organizr Function','Closing tab: '+tab);
 			$('#menu-'+cleanClass(tab)+' a').removeClass("active");
 			$('#menu-'+tab+' a').children().removeClass('tabLoaded');
-			$('#container'+extra+'-'+cleanClass(tab)).removeClass("loaded show");
+			$('#container'+extra+'-'+cleanClass(tab)).removeClass("loaded show").addClass("hidden");
 			$('#frame'+extra+'-'+cleanClass(tab)).remove();
             setTabInfo(cleanClass(tab),'loaded',false);
             setTabInfo(cleanClass(tab),'active',false);
@@ -943,7 +947,10 @@ function closeCurrentTab(event){
 	}
 }
 function tabActions(event,name, type){
-	if(event.ctrlKey && !event.shiftKey && !event.altKey){
+	if(event.which == 3){
+		return false;
+	}
+	if((event.ctrlKey && !event.shiftKey && !event.altKey)  || event.which == 2){
 		popTab(cleanClass(name), type);
 	}else if(event.altKey && !event.shiftKey && !event.ctrlKey){
         closeTab(name);
@@ -1042,9 +1049,9 @@ function buildAccordion(array, open = false){
         var id = mainId + '-' + i;
         items += `
         <div class="panel">
-            <div class="panel-heading bg-org" id="`+id+`-heading" role="tab"> <a class="panel-title `+collapsed+`" data-toggle="collapse" href="#`+id+`-collapse" data-parent="#`+mainId+`" aria-expanded="false" aria-controls="`+id+`-collapse"> `+v.title+` </a> </div>
+            <div class="panel-heading bg-org" id="`+id+`-heading" role="tab"> <a class="panel-title `+collapsed+`" data-toggle="collapse" href="#`+id+`-collapse" data-parent="#`+mainId+`" aria-expanded="false" aria-controls="`+id+`-collapse"> <span lang="en">`+v.title+`</span> </a> </div>
             <div class="panel-collapse `+collapse+`" id="`+id+`-collapse" aria-labelledby="`+id+`-heading" role="tabpanel">
-                <div class="panel-body"> `+v.body+` </div>
+                <div class="panel-body" lang="en"> `+v.body+` </div>
             </div>
         </div>
         `;
@@ -1151,7 +1158,7 @@ function buildPluginsItem(array){
 		var href = (v.settings == true) ? '#'+v.idPrefix+'-settings-page' : 'javascript:void(0);';
 		if(v.enabled == true){
 			var activeToggle = `<li><a class="btn default btn-outline disablePlugin" href="javascript:void(0);" data-plugin-name="`+v.name+`" data-config-prefix="`+v.configPrefix+`" data-config-name="`+v.configPrefix+`-enabled"><i class="ti-power-off fa-2x"></i></a></li>`;
-			var settings = `<li><a class="btn default btn-outline popup-with-form" href="`+href+`" data-effect="mfp-3d-unfold"data-plugin-name="`+v.name+`" id="`+v.idPrefix+`-settings-button" data-config-prefix="`+v.configPrefix+`"><i class="ti-panel fa-2x"></i></a></li>`;
+			var settings = `<li><a class="btn default btn-outline popup-with-form" href="`+href+`" data-effect="mfp-3d-unfold"data-plugin-name="`+v.name+`" id="`+v.idPrefix+`-settings-button" data-config-prefix="`+v.configPrefix+`" data-api="${v.api}" data-settings="${v.settings}" data-bind="${v.bind}"><i class="ti-panel fa-2x"></i></a></li>`;
 		}else{
 			var activeToggle = `<li><a class="btn default btn-outline enablePlugin" href="javascript:void(0);" data-plugin-name="`+v.name+`" data-config-prefix="`+v.configPrefix+`" data-config-name="`+v.configPrefix+`-enabled"><i class="ti-plug fa-2x"></i></a></li>`;
 			var settings = '';
@@ -1163,7 +1170,7 @@ function buildPluginsItem(array){
 					<div class="el-card-avatar el-overlay-1 m-0"> <img class="lazyload" data-src="`+v.image+`">
 						<div class="el-overlay">
 							<ul class="el-info">
-								`+settings+activeToggle+`
+								${settings} ${activeToggle}
 							</ul>
 						</div>
 					</div>
@@ -1311,23 +1318,23 @@ function loadMarketplaceThemesItems(themes){
         var removeButton = (v.status == 'Not Installed') ? 'disabled' : '';
         v.name = i;
         themeList += `
-            <tr class="themeManagement" data-name="`+i+`" data-version="`+v.version+`">
+            <tr class="themeManagement" data-name="${i}" data-version="${v.version}">
                 <td class="text-center el-element-overlay">
                     <div class="el-card-item p-0">
                         <div class="el-card-avatar el-overlay-1 m-0">
-                            <img alt="user-img" src="`+v.icon+`" width="45">
+                            <img alt="user-img" src="${v.icon}" width="45">
                         </div>
                     </div>
                 </td>
-                <td>`+i+`
-                    <br><span class="text-muted">`+v.version+`</span>
-                    <br><span class="text-muted">`+v.author+`</span>
+                <td>${i}
+                    <br><span class="text-muted">${v.version}</span>
+                    <br><span class="text-muted">${v.author}</span>
                 </td>
-                <td>`+v.category+`</td>
-                <td>`+v.status+`</td>
-                <td style="text-align:center"><button type="button" onclick='aboutTheme(`+JSON.stringify(v)+`);' class="btn btn-success btn-outline btn-circle btn-lg popup-with-form" href="#about-theme-form" data-effect="mfp-3d-unfold"><i class="fa fa-info"></i></button></td>
-                <td style="text-align:center"><button type="button" onclick='installTheme("`+cleanClass(i)+`");themeAnalytics("`+ v.name +`");' class="btn btn-info btn-outline btn-circle btn-lg"><i class="`+installButton+`"></i></button></td>
-                <td style="text-align:center"><button type="button" onclick='removeTheme("`+cleanClass(i)+`");' class="btn btn-danger btn-outline btn-circle btn-lg" `+removeButton+`><i class="fa fa-trash"></i></button></td>
+                <td>${v.category}</td>
+                <td>${v.status}</td>
+                <td style="text-align:center"><button type="button" onclick='aboutTheme(${JSON.stringify(v)});' class="btn btn-success btn-outline btn-circle btn-lg popup-with-form" href="#about-theme-form" data-effect="mfp-3d-unfold"><i class="fa fa-info"></i></button></td>
+                <td style="text-align:center"><button type="button" onclick='installTheme("${cleanClass(i)}");themeAnalytics("${v.name}");' class="btn btn-info btn-outline btn-circle btn-lg"><i class="${installButton}"></i></button></td>
+                <td style="text-align:center"><button type="button" onclick='removeTheme("${cleanClass(i)}");' class="btn btn-danger btn-outline btn-circle btn-lg" ${removeButton}><i class="fa fa-trash"></i></button></td>
             </tr>
         `;
 
@@ -1652,13 +1659,14 @@ function themeStatus(name=null,version=null){
     }
 }
 function homepageItemFormHTML(v){
+	let docs = (typeof v.docs == 'undefined') ? '' : `<small class="pl-5"><a class="btn btn-sm btn-primary waves-effect waves-light" href="${v.docs}" target="_blank"> <i class="icon-docs m-r-5"></i> <span lang="en">Support Docs</span></a></small>`;
 	return `
 	<a id="editHomepageItemCall" href="#editHomepageItemDiv" class="hidden">homepage item</a>
 	<form id="homepage-`+v.name+`-form" class="white-popup mfp-with-anim homepageForm addFormTick">
 		<fieldset style="border:0;" class="col-md-10 col-md-offset-1">
             <div class="panel bg-org panel-info">
                 <div class="panel-heading">
-                    <span lang="en">`+v.name+`</span>
+                    <span class="" lang="en">`+v.name+`</span>${docs}
                     <button type="button" class="btn bg-org btn-circle close-popup pull-right close-editHomepageItemDiv"><i class="fa fa-times"></i> </button>
                     <button id="homepage-`+v.name+`-form-save" onclick="submitSettingsForm('homepage-`+v.name+`-form')" class="btn btn-sm btn-info btn-rounded waves-effect waves-light pull-right hidden animated loop-animation rubberBand m-r-20" type="button"><span class="btn-label"><i class="fa fa-save"></i></span><span lang="en">Save</span></button>
                 </div>
@@ -1674,6 +1682,7 @@ function homepageItemFormHTML(v){
 	`;
 }
 function editHomepageItem(item){
+	ajaxloader('.editHomepageItemBox-' + item, 'in');
 	organizrAPI2('GET','api/v2/settings/homepage/'+item).success(function(data) {
 		try {
 			let response = data.response;
@@ -1715,9 +1724,10 @@ function editHomepageItem(item){
 		}catch(e) {
 			organizrCatchError(e,data);
 		}
-
+		ajaxloader('.editHomepageItemBox-' + item);
 	}).fail(function(xhr) {
 		OrganizrApiError(xhr, 'Edit Homepage Failed');
+		ajaxloader('.editHomepageItemBox-' + item);
 	});
 }
 function buildHomepageItem(array){
@@ -1728,7 +1738,7 @@ function buildHomepageItem(array){
 				listing += `
 				<div class="col-lg-2 col-md-2 col-sm-4 col-xs-4">
 					<div class="white-box bg-org m-0">
-						<div class="el-card-item p-0">
+						<div class="el-card-item p-0 editHomepageItemBox-`+v.name+`">
 							<div class="el-card-avatar el-overlay-1">
 								<a onclick="editHomepageItem('`+v.name+`')"><img class="lazyload tabImages mouse" data-src="`+v.image+`"></a>
 							</div>
@@ -1739,25 +1749,6 @@ function buildHomepageItem(array){
 						</div>
 					</div>
 				</div>
-				<!--
-				<form id="homepage-`+v.name+`-form" class="mfp-hide white-popup mfp-with-anim homepageForm addFormTick">
-				    <fieldset style="border:0;" class="col-md-10 col-md-offset-1">
-                        <div class="panel bg-org panel-info">
-                            <div class="panel-heading">
-                                <span lang="en">`+v.name+`</span>
-                                <button type="button" class="btn bg-org btn-circle close-popup pull-right"><i class="fa fa-times"></i> </button>
-                                <button id="homepage-`+v.name+`-form-save" onclick="submitSettingsForm('homepage-`+v.name+`-form')" class="btn btn-sm btn-info btn-rounded waves-effect waves-light pull-right hidden animated loop-animation rubberBand m-r-20" type="button"><span class="btn-label"><i class="fa fa-save"></i></span><span lang="en">Save</span></button>
-                            </div>
-                            <div class="panel-wrapper collapse in" aria-expanded="true">
-                                <div class="panel-body bg-org">
-                                    +buildFormGroup(v.settings)+
-                                </div>
-                            </div>
-                        </div>
-					</fieldset>
-				    <div class="clearfix"></div>
-				</form>
-				-->
 				`;
 			}
 		});
@@ -1801,7 +1792,7 @@ function buildFormGroup(array){
 		if(i == 'custom'){
 			group += v;
 		}else{
-		    uList += `<li role="presentation" class="`+active+`"><a href="#`+customID+cleanClass(i)+`" aria-controls="`+i+`" role="tab" data-toggle="tab" aria-expanded="false"><span> `+i+`</span></a></li>`;
+		    uList += `<li role="presentation" class="`+active+`"><a href="#`+customID+cleanClass(i)+`" aria-controls="`+i+`" role="tab" data-toggle="tab" aria-expanded="false"><span lang="en">`+i+`</span></a></li>`;
 			group += `
 				<!-- FORM GROUP -->
 				<div role="tabpanel" class="tab-pane fade in `+active+`" id="`+customID+cleanClass(i)+`">
@@ -1829,14 +1820,16 @@ function buildFormGroup(array){
                         if (typeof value === 'object'){
                             builtItems += '<div class="row m-b-40">';
                             $.each(value, function(number,formItem) {
+                            	let clearfix = (formItem.type == 'blank') ? '<div class="clearfix"></div>' : '';
                                 builtItems += `
                                     <!-- INPUT BOX  Yes Multiple -->
                                     <div class="col-md-6 p-b-10">
                                         <div class="form-group">
-                                            <label class="control-label col-md-12"><span lang="en">`+formItem.label+`</span>`+helpTip+`</label>
-                                            <div class="col-md-12"> `+ buildFormItem(formItem) +` </div> <!-- end div -->
+                                            <label class="control-label col-md-12"><span lang="en">${formItem.label}</span>${helpTip}</label>
+                                            <div class="col-md-12">${buildFormItem(formItem)}</div> <!-- end div -->
                                         </div>
                                     </div>
+                                    ${clearfix}
                                     <!--/ INPUT BOX -->
                                 `;
                             });
@@ -1851,9 +1844,9 @@ function buildFormGroup(array){
 					<!-- INPUT BOX  no Multiple-->
 					<div class="col-md-`+override+` p-b-10">
 						<div class="form-group">
-							<label class="control-label col-md-12"><span lang="en">`+v.label+`</span>`+helpTip+`</label>
+							<label class="control-label col-md-12"><span lang="en">${v.label}</span>${helpTip}</label>
 							<div class="col-md-12">
-								`+ buildFormItem(v) +`
+								${buildFormItem(v)}
 							</div>
 						</div>
 					</div>
@@ -1977,7 +1970,7 @@ function buildCustomizeAppearance(){
             $('.javaThemeTextarea').val(javaThemeEditor.getValue());
             $('#customize-appearance-form-save').removeClass('hidden');
         });
-		$("input.pick-a-color").ColorPickerSliders({
+		$("input.pick-a-color-custom-options").ColorPickerSliders({
 			placement: 'bottom',
 			color: '#987654',
 			hsvpanel: true,
@@ -2072,6 +2065,12 @@ function sortHomepageItemHrefs(){
         }
     });
 }
+function checkTabHomepageItemList(name, url, urlLocal, id, check, tab) {
+	// might use this later
+	if (name.includes(check) || url.includes(check) || urlLocal.includes(check)) {
+		addEditHomepageItem(id, tab);
+	}
+}
 function checkTabHomepageItem(id, name, url, urlLocal){
     name = name.toLowerCase();
     url = url.toLowerCase();
@@ -2116,6 +2115,12 @@ function checkTabHomepageItem(id, name, url, urlLocal){
         addEditHomepageItem(id,'Ombi');
     }else if(name.includes('healthcheck') || url.includes('healthcheck') || urlLocal.includes('healthcheck')){
         addEditHomepageItem(id,'HealthChecks');
+    }else if(name.includes('jackett') || url.includes('jackett') || urlLocal.includes('jackett')){
+	    addEditHomepageItem(id,'Jackett');
+    }else if(name.includes('unifi') || url.includes('unifi') || urlLocal.includes('unifi')){
+	    addEditHomepageItem(id,'Unifi');
+    }else if(name.includes('tautulli') || url.includes('tautulli') || urlLocal.includes('tautulli')){
+	    addEditHomepageItem(id,'Tautulli');
     }
 }
 function addEditHomepageItem(id, type){
@@ -2460,12 +2465,12 @@ function buildActiveTokens(array) {
                                 <thead>
                                     <tr>
                                         <th>#</th>
-                                        <th>Token</th>
-                                        <th>Created</th>
-                                        <th>Expires</th>
-                                        <th>Browser</th>
-                                        <th>IP</th>
-                                        <th>Action</th>
+                                        <th lang="en">Token</th>
+                                        <th lang="en">Created</th>
+                                        <th lang="en">Expires</th>
+                                        <th lang="en">Browser</th>
+                                        <th lang="en">IP</th>
+                                        <th lang="en">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -2492,7 +2497,7 @@ function accountManager(user){
                         <div class="panel-wrapper collapse" aria-expanded="true">
                             <div class="panel-body bg-org">
                                 <p lang="en">If you signed in with a Plex Acct... Please use the following link to change your password there:</p><br>
-                                <p><a href="https://app.plex.tv/auth#?resetPassword" target="_blank">Change Password on Plex Website</a></p>
+                                <p><a href="https://app.plex.tv/auth#?resetPassword" target="_blank" lang="en">Change Password on Plex Website</a></p>
                             </div>
                         </div>
                     </div>
@@ -2614,7 +2619,7 @@ function userMenu(user){
 					<li class="append-menu"><a class="inline-popups" href="#account-area" data-effect="mfp-zoom-out"><i class="ti-settings fa-fw"></i> <span lang="en">Account Settings</span></a></li>
 					<li class="divider" role="separator"></li>
 					<li><a href="javascript:void(0)" onclick="lock();"><i class="ti-lock fa-fw"></i> <span lang="en">Lock Screen</span></a></li>
-					` + showDebug + `
+					${showDebug}
 					<li><a href="javascript:void(0)" onclick="logout();"><i class="fa fa-sign-out fa-fw"></i> <span lang="en">Logout</span></a></li>
 				</ul><!-- /.dropdown-user -->
 			</li><!-- /.dropdown -->
@@ -2628,7 +2633,7 @@ function userMenu(user){
 			<ul class="nav nav-second-level collapse" aria-expanded="false" style="height: 0px;">
 				<li class="append-menu"><a class="inline-popups" href="#account-area" data-effect="mfp-zoom-out"><i class="ti-settings fa-fw"></i> <span lang="en">Account Settings</span></a></li>
 				<li><a href="javascript:void(0)" onclick="lock();"><i class="ti-lock fa-fw"></i> <span lang="en">Lock Screen</span></a></li>
-				` + showDebug + `
+				${showDebug}
 				<li><a href="javascript:void(0)" onclick="logout();"><i class="fa fa-sign-out fa-fw"></i> <span lang="en">Logout</span></a></li>
 			</ul>
 		</li>
@@ -2667,14 +2672,48 @@ function userMenu(user){
 	console.info("%c "+window.lang.translate('Welcome')+" %c ".concat(user.data.user.username, " "), "color: white; background: #AD80FD; font-weight: 700;", "color: #AD80FD; background: white; font-weight: 700;");
 }
 function menuExtras(active){
-    var supportFrame = buildFrameContainer('Organizr Support','https://organizr.app/support',1);
-    var docsFrame = buildFrameContainer('Organizr Docs','https://docs.organizr.app',1);
-    var adminMenu = '<li class="devider"></li>';
-    adminMenu += (activeInfo.user.groupID <= 1 && activeInfo.settings.menuLink.githubMenuLink) ? buildMenuList('GitHub Repo','https://github.com/causefx/organizr',2,'fontawesome::github') : '';
-    adminMenu += (activeInfo.user.groupID <= 1 && activeInfo.settings.menuLink.organizrSupportMenuLink) ? buildMenuList('Organizr Support','https://organizr.app/support',1,'fontawesome::life-ring') : '';
-    adminMenu += (activeInfo.user.groupID <= 1 && activeInfo.settings.menuLink.organizrDocsMenuLink) ? buildMenuList('Organizr Docs','https://docs.organizr.app',1,'simpleline::docs') : '';
-    $(supportFrame).appendTo($('.iFrame-listing'));
-    $(docsFrame).appendTo($('.iFrame-listing'));
+	let adminMenu = '<li class="devider"></li>';
+	let extraOrganizrLinks = [
+		{
+			'type':2,
+			'group_id':1,
+			'name':'Github Repo',
+			'url':'https://github.com/causefx/organizr',
+			'icon':'fontawesome::github',
+			'active':activeInfo.settings.menuLink.githubMenuLink
+		},
+		{
+			'type':1,
+			'group_id':1,
+			'name':'Organizr Support',
+			'url':'https://organizr.app/support',
+			'icon':'fontawesome::life-ring',
+			'active':activeInfo.settings.menuLink.organizrSupportMenuLink
+		},
+		{
+			'type':2,
+			'group_id':1,
+			'name':'Organizr Docs',
+			'url':'https://docs.organizr.app',
+			'icon':'simpleline::docs',
+			'active':activeInfo.settings.menuLink.organizrDocsMenuLink
+		},
+		{
+			'type':1,
+			'group_id':1,
+			'name':'Feature Request',
+			'url':'https://vote.organizr.app',
+			'icon':'simpleline::arrow-up-circle',
+			'active':activeInfo.settings.menuLink.organizrFeatureRequestLink
+		}
+	];
+	$.each(extraOrganizrLinks, function(i,v) {
+		if(v.type == 1){
+			let frame = buildFrameContainer(v.name,v.url,v.type);
+			$(frame).appendTo($('.iFrame-listing'));
+		}
+		adminMenu += (activeInfo.user.groupID <= v.group_id && v.active) ? buildMenuList(v.name,v.url,v.type,v.icon) : '';
+	});
 	if(active === true){
 		return (activeInfo.settings.menuLink.organizrSignoutMenuLink) ? `
 			<li class="devider"></li>
@@ -2689,13 +2728,16 @@ function menuExtras(active){
 }
 function categoryProcess(arrayItems){
 	var menuList = '';
+	let categoryIn = activeInfo.settings.misc.expandCategoriesByDefault ? 'in' : '';
+	let categoryActive = activeInfo.settings.misc.expandCategoriesByDefault ? 'active' : '';
+	let categoryExpanded = activeInfo.settings.misc.expandCategoriesByDefault ? 'true' : 'false';
 	if (Array.isArray(arrayItems['data']['categories']) && Array.isArray(arrayItems['data']['tabs'])) {
 		$.each(arrayItems['data']['categories'], function(i,v) {
 			if(v.count !== 0 && v.category_id !== 0){
 				menuList += `
-					<li class="allGroupsList" data-group-name="`+cleanClass(v.category)+`">
+					<li class="allGroupsList `+categoryActive+`" data-group-name="`+cleanClass(v.category)+`">
 						<a class="waves-effect" href="javascript:void(0)">`+iconPrefix(v.image)+`<span class="hide-menu">`+v.category+` <span class="fa arrow"></span> <span class="label label-rouded label-inverse pull-right">`+v.count+`</span></span><div class="menu-category-ping" data-good="0" data-bad="0"></div></a>
-						<ul class="nav nav-second-level category-`+v.category_id+` collapse"></ul>
+						<ul class="nav nav-second-level category-`+v.category_id+` collapse `+categoryIn+`" aria-expanded="`+categoryExpanded+`"></ul>
 					</li>
 				`;
 			}
@@ -2723,7 +2765,7 @@ function buildInternalContainer(name,url,type, split = null){
 function buildMenuList(name,url,type,icon,ping=null,category_id = null,group_id = null){
     var ping = (ping !== null) ? `<small class="menu-`+cleanClass(ping)+`-ping-ms hidden-xs label label-rouded label-inverse pull-right pingTime hidden">
 </small><div class="menu-`+cleanClass(ping)+`-ping" data-tab-name="`+name+`" data-previous-state=""></div>` : '';
-	return `<li class="allTabsList" id="menu-`+cleanClass(name)+`" data-tab-name="`+cleanClass(name)+`" type="`+type+`" data-group-id="`+group_id+`" data-category-id="`+category_id+`" data-url="`+url+`"><a class="waves-effect"  onclick="tabActions(event,'`+cleanClass(name)+`',`+type+`);">`+iconPrefix(icon)+`<span class="hide-menu elip sidebar-tabName">`+name+`</span>`+ping+`</a></li>`;
+	return `<li class="allTabsList" id="menu-`+cleanClass(name)+`" data-tab-name="`+cleanClass(name)+`" type="`+type+`" data-group-id="`+group_id+`" data-category-id="`+category_id+`" data-url="`+url+`"><a class="waves-effect"  href="javascript:void(0)" onclick="tabActions(event,'`+cleanClass(name)+`',`+type+`);" onauxclick="tabActions(event,'`+cleanClass(name)+`',`+type+`);">`+iconPrefix(icon)+`<span class="hide-menu elip sidebar-tabName">`+name+`</span>`+ping+`</a></li>`;
 }
 function tabProcess(arrayItems) {
 	var iFrameList = '';
@@ -2865,10 +2907,10 @@ function buildSplashScreenItem(arrayItems){
                     var nonImage = '<span class="text-uppercase badge bg-org splash-badge">'+image+'</span>';
                 }
                 splashList += `
-                <div class="col-xs-12 col-sm-3 col-md-3 col-lg-3 col-xl-2 mouse hvr-grow m-b-20" id="menu-`+cleanClass(v.name)+`" type="`+v.type+`" data-url="`+v.access_url+`" onclick="tabActions(event,'`+cleanClass(v.name)+`',`+v.type+`);">
-                    <div class="homepage-drag fc-event bg-org lazyload"  `+ dataSrc +`>
-                        `+nonImage+`
-                        <span class="homepage-text">&nbsp; `+v.name+`</span>
+                <div class="col-xs-12 col-sm-3 col-md-3 col-lg-3 col-xl-2 mouse hvr-grow m-b-20" id="menu-${cleanClass(v.name)}" type="${v.type}" data-url="${v.access_url}" onclick="tabActions(event,'${cleanClass(v.name)}',${v.type});">
+                    <div class="homepage-drag fc-event bg-org lazyload" ${dataSrc}>
+                        ${nonImage}
+                        <span class="homepage-text">&nbsp; ${v.name}</span>
                     </div>
                 </div>
                 `;
@@ -2878,13 +2920,14 @@ function buildSplashScreenItem(arrayItems){
     return (splashList !== '') ? splashList : false;
 }
 function buildSplashScreen(json){
+	let hiddenSplash = (directToHash) ? 'hidden' : 'in';
     var items = buildSplashScreenItem(json);
     var menu = '<li ><a href="javascript:void(0)" onclick="$(\'.splash-screen\').removeClass(\'hidden\').addClass(\'in\')"><i class="ti-layout-grid2 fa-fw"></i> <span lang="en">Splash Page</span></a></li>';
     if(items){
         closeSideMenu();
 	    organizrConsole('Organizr Function','Adding Splash Screen');
         var splash = `
-        <section id="splashScreen" class="lock-screen splash-screen fade in">
+        <section id="splashScreen" class="lock-screen splash-screen fade ${hiddenSplash}">
             <div class="row p-20 flexbox">`+items+`</div>
             <div class="row p-20 p-t-0 flexbox">
                 <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12 col-xl-12 mouse hvr-wobble-bottom bottom-close-splash" onclick="$('.splash-screen').addClass('hidden').removeClass('in')">
@@ -3077,17 +3120,10 @@ function buildTabEditorItem(array){
 		var buttonDisabled = v.url.indexOf('/page/settings') > 0 ? 'disabled' : '';
         var typeDisabled = v.url.indexOf('/v2/page/') > 0 ? 'disabled' : '';
 		tabList += `
-		<tr class="tabEditor" data-order="`+v.order+`" data-id="`+v.id+`" data-group-id="`+v.group_id+`" data-category-id="`+v.category_id+`" data-name="`+v.name+`" data-url="`+v.url+`" data-local-url="`+v.url_local+`" data-ping-url="`+v.ping_url+`" data-image="`+v.image+`" data-tab-action-type="`+v.timeout+`" data-tab-action-time="`+v.timeout_ms+`">
+		<tr class="tabEditor" data-order="`+v.order+`" data-original-order="`+v.order+`" data-id="`+v.id+`" data-group-id="`+v.group_id+`" data-category-id="`+v.category_id+`" data-name="`+v.name+`" data-url="`+v.url+`" data-local-url="`+v.url_local+`" data-ping-url="`+v.ping_url+`" data-image="`+v.image+`" data-tab-action-type="`+v.timeout+`" data-tab-action-time="`+v.timeout_ms+`">
 			<input type="hidden" class="form-control" name="tab[`+v.id+`].id" value="`+v.id+`">
 			<input type="hidden" class="form-control order" name="tab[`+v.id+`].order" value="`+v.order+`">
 			<input type="hidden" class="form-control" name="tab[`+v.id+`].originalOrder" value="`+v.order+`">
-			<input type="hidden" class="form-control" name="tab[`+v.id+`].url_local" value="`+v.url_local+`">
-			<input type="hidden" class="form-control" name="tab[`+v.id+`].name" value="`+v.name+`">
-			<input type="hidden" class="form-control" name="tab[`+v.id+`].url" value="`+v.url+`">
-			<input type="hidden" class="form-control" name="tab[`+v.id+`].ping_url" value="`+v.ping_url+`">
-			<input type="hidden" class="form-control" name="tab[`+v.id+`].image" value="`+v.image+`">
-			<input type="hidden" class="form-control" name="tab[`+v.id+`].timeout" value="`+v.timeout+`">
-			<input type="hidden" class="form-control" name="tab[`+v.id+`].timeout_ms" value="`+v.timeout_ms+`">
 			<td style="text-align:center" class="text-center el-element-overlay">
 				<div class="el-card-item p-0">
 					<div class="el-card-avatar el-overlay-1 m-0">
@@ -3110,12 +3146,38 @@ function buildTabEditorItem(array){
 			<td style="text-align:center"><input type="checkbox" class="js-switch splashSwitch" data-size="small" data-color="#99d683" data-secondary-color="#f96262" name="tab[`+v.id+`].splash" value="true" `+tof(v.splash,'c')+`/><input type="hidden" class="form-control" name="tab[`+v.id+`].splash" value="false"></td>
 			<td style="text-align:center"><input type="checkbox" class="js-switch pingSwitch" data-size="small" data-color="#99d683" data-secondary-color="#f96262" name="tab[`+v.id+`].ping" value="true" `+tof(v.ping,'c')+`/><input type="hidden" class="form-control" name="tab[`+v.id+`].ping" value="false"></td>
 			<td style="text-align:center"><input type="checkbox" class="js-switch preloadSwitch" data-size="small" data-color="#99d683" data-secondary-color="#f96262" name="tab[`+v.id+`].preload" value="true" `+tof(v.preload,'c')+`/><input type="hidden" class="form-control" name="tab[`+v.id+`].preload" value="false"></td>
-			<td style="text-align:center"><button type="button" class="btn btn-info btn-outline btn-circle btn-lg m-r-5 editTabButton popup-with-form" href="#edit-tab-form" data-effect="mfp-3d-unfold"><i class="ti-pencil-alt"></i></button></td>
+			<td style="text-align:center"><button type="button" class="btn btn-info btn-outline btn-circle btn-lg m-r-5 editTabButton popup-with-form" onclick="editTabForm('`+v.id+`')" href="#edit-tab-form" data-effect="mfp-3d-unfold"><i class="ti-pencil-alt"></i></button></td>
 			<td style="text-align:center"><button type="button" class="btn btn-danger btn-outline btn-circle btn-lg m-r-5 `+deleteDisabled+`"><i class="ti-trash"></i></button></td>
 		</tr>
 		`;
 	});
 	return tabList;
+}
+function editTabForm(id){
+	organizrAPI2('GET','api/v2/tabs/' + id,true).success(function(data) {
+		try {
+			let response = data.response;
+			console.log(response);
+			$('#edit-tab-form [name=name]').val(response.data.name);
+			$('#originalTabName').html(response.data.name);
+			$('#edit-tab-form [name=url]').val(response.data.url);
+			$('#edit-tab-form [name=url_local]').val(response.data.url_local);
+			$('#edit-tab-form [name=ping_url]').val(response.data.ping_url);
+			$('#edit-tab-form [name=image]').val(response.data.image);
+			$('#edit-tab-form [name=id]').val(response.data.id);
+			$('#edit-tab-form [name=timeout_ms]').val(convertMsToMinutes(response.data.timeout_ms));
+			$('#edit-tab-form [name=timeout]').val(response.data.timeout);
+			if( response.data.url.indexOf('/?v') > 0){
+				$('#edit-tab-form [name=url]').prop('disabled', 'true');
+			}else{
+				$('#edit-tab-form [name=url]').prop('disabled', null);
+			}
+		}catch(e) {
+			organizrCatchError(e,data);
+		}
+	}).fail(function(xhr) {
+		OrganizrApiError(xhr, 'Tab Error');
+	});
 }
 function getSubmitSettingsFormValueSingle(form, index, value){
     var values = {};
@@ -3245,6 +3307,7 @@ function submitHomepageOrder(){
 }
 function submitTabOrder(newTabs){
 	var data = [];
+	var process = false;
 	$.each(newTabs.tab, function(i,v) {
 		if(v.originalOrder == v.order){
 			delete newTabs.tab[i];
@@ -3254,8 +3317,14 @@ function submitTabOrder(newTabs){
 				"id":v.id
 			}
 			data.push(temp);
+			process = true;
 		}
 	})
+	if(!process){
+		message('Tab Order Warning','Order was not changed - Submission not needed',activeInfo.settings.notifications.position,"#FFF","warning","5000");
+		$('.saveTabOrderButton').addClass('hidden');
+		return false;
+	}
 	var callbacks = $.Callbacks();
 	callbacks.add( buildTabEditor );
 	organizrAPI2('PUT','api/v2/tabs',data,true).success(function(data) {
@@ -3387,10 +3456,26 @@ function updateCheck(){
             if (activeInfo.settings.misc.docker === false) {
                 messageSingle(window.lang.translate('Update Available'), latest + ' ' + window.lang.translate('is available, goto') + ' <a href="javascript:void(0)" onclick="tabActions(event,\'Settings\',0);clickPath(\'update\')"><span lang="en">Update Tab</span></a>', activeInfo.settings.notifications.position, '#FFF', 'update', '60000');
             }
-        }
+        }else{
+			organizrConsole('Update Function','Already running latest version: ' + latest, 'info');
+		}
 		$('#githubVersions').html(buildVersion(reverseObject(response)));
 	}).fail(function(xhr) {
 		OrganizrApiError(xhr);
+	});
+}
+function ignoreNewsId(id){
+	organizrAPI2('POST','api/v2/news/' + id,{}).success(function(data) {
+		try {
+			let response = data.response;
+			message('News Item','Item now ignored',activeInfo.settings.notifications.position,"#FFF","success","5000");
+			$('.newsItem-' + id).remove();
+			$('.newsHeart-' + id).remove();
+		}catch(e) {
+			organizrCatchError(e,data);
+		}
+	}).fail(function(xhr) {
+		OrganizrApiError(xhr, 'News');
 	});
 }
 function newsLoad(){
@@ -3400,27 +3485,39 @@ function newsLoad(){
             var items = [];
             var limit = 5;
             var count = 0;
-            $.each(response, function(i,v) {
-                count++;
-                let alertDefined = (typeof v.important !== 'undefined' || v.important === false);
-                let alert = (alertDefined) ? '<span class="animated loop-animation flash text-danger">&nbsp; <i class="ti-alert"></i>&nbsp; Important Message</span>' : '';
-                let heartBeat = (alertDefined) ? '<div class="notify pull-left"><span class="heartbit"></span><span class="point"></span></div>' : '';
-                let newBody = `
-                <h5 class="pull-left">`+moment(v.date).format('LLL')+`</h5>
-                <h5 class="pull-right">`+v.author+`</h5>
-                <div class="clearfix"></div>
-                `+((v.subTitle) ? '<h5>' + v.subTitle + alert + '</h5>' : '' )+`
-                <p>`+v.body+`</p>
-                `;
-                if(count <= limit){
-                    items[i] = {
-                        title:v.title + heartBeat,
-                        body:newBody
-                    }
-                }
-            });
-            var body = buildAccordion(items, true);
-            $('#organizrNewsPanel').html(body);
+	        organizrAPI2('get','api/v2/news').success(function(data) {
+		        try {
+			        let ignoredIds = data.response.data;
+			        ignoredIds = ignoredIds == null ? [] : ignoredIds;
+			        $.each(response, function(i,v) {
+				        count++;
+				        let ignore = ignoredIds.includes(v.id);
+				        let alertDefined = (typeof v.important !== 'undefined' || v.important === false);
+				        let alert = (alertDefined && ignore == false) ? `<span class="animated loop-animation flash text-danger mouse newsItem-${v.id}" onclick="ignoreNewsId('${v.id}')">&nbsp; <i class="ti-alert"></i>&nbsp; Important Message - Click me to Ignore</span>` : '';
+				        let heartBeat = (alertDefined && ignore == false) ? `<div class="notify pull-left newsHeart-${v.id}"><span class="heartbit"></span><span class="point"></span></div>` : '';
+				        let newBody = `
+			                <h5 class="pull-left"><i class="ti-calendar"></i>&nbsp;`+moment(v.date).format('LLL')+ alert +`</h5>
+			                <h5 class="pull-right">`+v.author+`</h5>
+			                <div class="clearfix"></div>
+			                `+((v.subTitle) ? '<h5>' + v.subTitle +'</h5>' : '' )+`
+			                <p>`+v.body+`</p>
+			                `;
+				        if(count <= limit){
+					        items[i] = {
+						        title:v.title + heartBeat,
+						        body:newBody
+					        }
+				        }
+			        });
+			        var body = buildAccordion(items, true);
+			        $('#organizrNewsPanel').html(body);
+		        }catch(e) {
+			        organizrCatchError(e,data);
+		        }
+	        }).fail(function(xhr) {
+		        OrganizrApiError(xhr, 'News');
+	        });
+
         }catch(e) {
 	        organizrCatchError(e,data);
         }
@@ -3470,10 +3567,18 @@ function sponsorLoad(){
     });
 }
 function backersLoad(){
-	organizrAPI2('GET','api/v2/opencollective').success(function(data) {
+	organizrAPI2('GET','api/v2/sponsors/all').success(function(data) {
 		try {
 			let json = data.response;
-			$('.backers-list').html(buildBackers(json.data));
+			$('#backersList').html(buildBackers(json.data));
+			$('.backers-items').owlCarousel({
+				nav:false,
+				autoplay:true,
+				dots:false,
+				margin:10,
+				autoWidth:true,
+				items:4
+			});
 		}catch(e) {
 			organizrCatchError(e,data);
 		}
@@ -3486,12 +3591,27 @@ function buildBackers(array){
 	$.each(array, function(i,v) {
 		if(v.type == 'USER' && v.role == 'BACKER' && v.isActive){
 			v.name = v.name ? v.name : 'User';
-			v.image = v.image ? v.image : 'image here';
-			backers += '<li><img src="'+v.image+'" alt="user" height="60" width="60" data-toggle="tooltip" title="" class="img-circle" data-original-title="'+v.name+'"></li>';
+			v.image = v.image ? v.image : 'plugins/images/default_user.png';
+			backers += `
+		        <!-- /.usercard -->
+		        <div class="item lazyload recent-sponsor imageSource"  data-src="${v.image}">
+		            <span class="elip recent-title" lang="en">${v.name}</span>
+		        </div>
+		        <!-- /.usercard-->
+		    `;
 		}
 	});
-	backers += '<li><a href="https://opencollective.com/organizr" target="_blank" class="circle circle-md bg-info di" data-toggle="tooltip" title="" data-original-title="Join">You</a></li>';
+	backers += `
+        <!-- /.usercard -->
+        <div class="item lazyload recent-sponsor mouse imageSource mouse" onclick="window.open('https://opencollective.com/organizr', '_blank')" data-src="plugins/images/sponsor-open-collective.png">
+            <span class="elip recent-title" lang="en">You</span>
+        </div>
+        <!-- /.usercard-->
+    `;
 	return backers;
+
+
+
 }
 function sponsorDetails(id){
 	sponsorsJSON().success(function(data) {
@@ -3502,23 +3622,23 @@ function sponsorDetails(id){
 			let extraInfo = (coupon && couponAbout) ? `
 				<hr/>
 		        <h3>Coupon Code:</h3>
-		        <p><span class="label label-rouded label-info pull-right">`+response[id].coupon+`</span>
-		        <span class=" pull-left">`+response[id].coupon_about+`</span></p>
+		        <p><span class="label label-rouded label-info pull-right">${response[id].coupon}</span>
+		        <span class=" pull-left">${response[id].coupon_about}</span></p>
 		    ` : '';
 			let html = `
 		        <div class="panel panel-default">
-                    <div class="panel-heading">`+response[id].company_name+`</div>
+                    <div class="panel-heading">${response[id].company_name}</div>
                     <div class="panel-wrapper collapse in">
                         <div class="panel-body">
                             <div class="overlay-box">
                                 <div class="user-content">
-                                    <a href="javascript:void(0)"><img src="`+response[id].logo+`" class="thumb-lg img-circle" alt="img"></a>
-                                    <h4 class="text-white">`+response[id].company_name+`</h4>
-                                    <h5 class="text-white"><a href="` + response[id].website +`" target="_blank">Website</a></h5>
+                                    <a href="javascript:void(0)"><img src="${response[id].logo}" class="thumb-lg img-circle" alt="img"></a>
+                                    <h4 class="text-white">${response[id].company_name}</h4>
+                                    <h5 class="text-white"><a href="${response[id].website}" target="_blank">Website</a></h5>
                                 </div>
                             </div>
                             <hr/>
-                            <div class="text-left">`+response[id].about+extraInfo+`</div>
+                            <div class="text-left">${response[id].about} ${extraInfo}</div>
                         </div>
                     </div>
                 </div>
@@ -3592,9 +3712,9 @@ function buildSponsor(array){
         var sponsorAboutModal = (v.about) ? 'onclick="sponsorDetails(\''+i+'\');sponsorAnalytics(\''+v.company_name+'\');"' : 'onclick="window.open(\''+ v.website +'\', \'_blank\');sponsorAnalytics(\''+v.company_name+'\');"';
         sponsors += `
             <!-- /.usercard -->
-            <div class="item lazyload recent-sponsor mouse imageSource mouse" `+sponsorAboutModal+` data-src="`+v.logo+`" data-id="`+i+`">
-                <span class="elip recent-title">`+v.company_name+`</span>
-                `+ hasCoupon +`
+            <div class="item lazyload recent-sponsor mouse imageSource mouse" ${sponsorAboutModal} data-src="${v.logo}" data-id="${i}">
+                <span class="elip recent-title">${v.company_name}</span>
+                ${hasCoupon}
             </div>
             <!-- /.usercard-->
         `;
@@ -3703,12 +3823,12 @@ function buildOrganizrBackups(array){
 			let version = (typeof v.name.match(pattern)[1] !== 'undefined') ?  v.name.match(pattern)[1] : 'N/A';
 			list += `
 			<tr>
-				<td>` + i + `</td>
-				<td class="txt-oflo">` + v.name + `</td>
-				<td><span class="label label-primary label-rouded">` + version + `</span> </td>
-				<td class="txt-oflo">` + v.size + `</td>
-				<td><span class="text-info tooltip-info" data-toggle="tooltip" data-placement="right" title="" data-original-title="`+moment(v.date).format('LLL')+`">`+moment.utc(v.date, "YYYY-MM-DD hh:mm[Z]").local().fromNow()+`</span></td>
-				<td><span class="text-primary"><a href="api/v2/backup/`+v.name+`"><i class="fa fa-download download-backup" data-file="` + v.name + `"></i></a> | <a href="javascript:void(0)"><i class="fa fa-trash-o delete-backup" data-file="` + v.name + `"></i></a></span></td>
+				<td>${i}</td>
+				<td class="txt-oflo">${v.name}</td>
+				<td><span class="label label-primary label-rouded">${version}</span> </td>
+				<td class="txt-oflo">${v.size}</td>
+				<td><span class="text-info tooltip-info" data-toggle="tooltip" data-placement="right" title="" data-original-title="${moment(v.date).format('LLL')}">${moment.utc(v.date, "YYYY-MM-DD hh:mm[Z]").local().fromNow()}</span></td>
+				<td><span class="text-primary"><a href="api/v2/backup/${v.name}"><i class="fa fa-download download-backup" data-file="${v.name}"></i></a> | <a href="javascript:void(0)"><i class="fa fa-trash-o delete-backup" data-file="${v.name}"></i></a></span></td>
 			</tr>
 			`;
 		});
@@ -3763,7 +3883,6 @@ function countdown(remaining) {
 function dockerUpdate(){
     if(activeInfo.settings.misc.docker){
 	    showUpdateBar();
-        //$(updateBar()).appendTo('.organizr-area');
         updateUpdateBar('Starting Download','20%');
         messageSingle(window.lang.translate('[DO NOT CLOSE WINDOW]'),window.lang.translate('Starting Update Process'),activeInfo.settings.notifications.position,'#FFF','success','60000');
         organizrAPI2('GET','api/v2/update/docker').success(function(data) {
@@ -3777,7 +3896,6 @@ function dockerUpdate(){
 function windowsUpdate(){
     if(activeInfo.serverOS == 'win'){
 	    showUpdateBar();
-    	//$(updateBar()).appendTo('.organizr-area');
         updateUpdateBar('Starting Download','20%');
         messageSingle(window.lang.translate('[DO NOT CLOSE WINDOW]'),window.lang.translate('Starting Update Process'),activeInfo.settings.notifications.position,'#FFF','success','60000');
         organizrAPI2('GET','api/v2/update/windows').success(function(data) {
@@ -3800,7 +3918,6 @@ function updateNow(){
     }
 	organizrConsole('Update Function','Starting Update Process');
 	showUpdateBar();
-	//$(updateBar()).appendTo('.organizr-area');
 	updateUpdateBar('Starting Download','5%');
 	messageSingle(window.lang.translate('[DO NOT CLOSE WINDOW]'),window.lang.translate('Starting Update Process'),activeInfo.settings.notifications.position,'#FFF','success','60000');
 	organizrAPI2('GET','api/v2/update/download/'+ activeInfo.branch).success(function(data) {
@@ -3846,7 +3963,7 @@ function organizrAPI2(type,path,data=null,asyncValue=true){
 	switch(path){
 		case 'api/v2/windows/update':
 		case 'api/v2/docker/update':
-			timeout = 120000;
+			timeout = 240000;
 			break;
 		default:
 			timeout = 60000;
@@ -4070,6 +4187,7 @@ function buildWizard(){
         }
 		organizrConsole('Organizr Function','Starting Install Wizard');
 		$(json.data).appendTo($('.organizr-area'));
+		$('.organizr-area').removeClass('hidden');
 	}).fail(function(xhr) {
 		OrganizrApiError(xhr, 'Wiizard Error');
 	});
@@ -4084,6 +4202,7 @@ function buildDependencyCheck(orgdata){
         }
 		organizrConsole('Organizr Function','Starting Dependencies Check');
 		$(json.data).appendTo($('.organizr-area'));
+		$('.organizr-area').removeClass('hidden');
 		$(buildBrowserInfo()).appendTo($('#browser-info'));
 		$('#web-folder').html(buildWebFolder(orgdata));
 		$('#php-version-check').html(buildPHPCheck(orgdata));
@@ -4094,25 +4213,54 @@ function buildDependencyCheck(orgdata){
 	$("#preloader").fadeOut();
 }
 function buildDependencyInfo(arrayItems){
-	var listing = '';
+	let listing = '';
 	$.each(arrayItems.data.status.dependenciesActive, function(i,v) {
 			listing += '<li class="depenency-item" data-name="'+v+'"><a href="javascript:void(0)"><i class="fa fa-check text-success"></i> '+v+'</a></li>';
 		});
 	$.each(arrayItems.data.status.dependenciesInactive, function(i,v) {
-		listing += '<li class="depenency-item" data-name="'+v+'"><a href="javascript:void(0)"><i class="fa fa-close text-danger"><div class="notify"><span class="heartbit"></span></div></i> '+v+'</a></li>';
+		listing += '<li class="depenency-item" data-name="'+v+'"><a href="javascript:void(0)"><i class="fa fa-close text-danger"><div class="notify"><span class="heartbit depend-heartbit"></span></div></i> '+v+'</a></li>';
 	});
+
+	let className = (arrayItems.data.status.dependenciesInactive.length !== 0) ? 'bg-danger text-warning' : 'bg-primary';
+	let icon = (arrayItems.data.status.dependenciesInactive.length !== 0) ? 'fa fa-exclamation-triangle' : 'fa fa-check-circle';//dependency-dependencies-check-listing-header
+	let header = (arrayItems.data.status.dependenciesInactive.length !== 0) ? 'panel-danger' : 'panel-info';
+	let listingIcon = (arrayItems.data.status.dependenciesInactive.length !== 0) ? 'ti-alert' : 'ti-check-box';
+	let listingText = (arrayItems.data.status.dependenciesInactive.length !== 0) ? 'Dependencies Missing' : 'Dependencies OK';
+
+	$('.dependency-dependencies-check-listing-header').removeClass('panel-danger').addClass(header);
+	$('.dependency-dependencies-check-listing i').first().removeClass('ti-alert').addClass(listingIcon);
+	$('.dependency-dependencies-check-listing span').text(listingText);
+	$('.dependency-dependencies-check').removeClass('bg-warning').addClass(className);
+	$('.dependency-dependencies-check i').removeClass('fa fa-spin fa-spinner').addClass(icon);
 	return listing;
 }
 function buildWebFolder(arrayItems){
-	var writable = (arrayItems.data.status.writable == 'yes') ? 'Writable - All Good' : 'Not Writable - Please fix permissions';
-	var className = (writable == 'Writable - All Good') ? 'bg-primary' : 'bg-danger text-warning';
+	let writable = 'Not Writable - Please fix permissions';
+	let className = 'bg-danger text-warning';
+	let icon = 'fa fa-exclamation-triangle';
+	if(arrayItems.data.status.writable == 'yes'){
+		writable = 'Writable - All Good';
+		className = 'bg-primary';
+		icon = 'fa fa-check-circle';
+	}
+	$('.dependency-permissions-check').removeClass('bg-warning').addClass(className);
+	$('.dependency-permissions-check i').removeClass('fa fa-spin fa-spinner').addClass(icon);
 	$('#web-folder').addClass(className);
 	return writable;
 }
 function buildPHPCheck(arrayItems){
-	var phpTest = (arrayItems.data.status.minVersion == 'yes') ? 'PHP Version Approved' : 'Upgrade PHP Version to 7.0';
-	var className = (arrayItems.data.status.minVersion == 'yes') ? 'bg-primary' : 'bg-danger text-warning';
+	let phpTest = 'Upgrade PHP Version to 7.2+';
+	let className = 'bg-danger text-warning';
+	let icon = 'fa fa-exclamation-triangle';
+	if(arrayItems.data.status.minVersion == 'yes'){
+		phpTest = 'PHP Version Approved';
+		className = 'bg-primary';
+		icon = 'fa fa-check-circle';
+	}
+	$('.dependency-phpversion-check').removeClass('bg-warning').addClass(className);
+	$('.dependency-phpversion-check i').removeClass('fa fa-spin fa-spinner').addClass(icon);
 	$('#php-version-check').addClass(className);
+	$('#php-version-check-user').html('<span lang="en">Webserver User</span>: ' + arrayItems.data.status.php_user)
 	return phpTest;
 }
 function buildBrowserInfo(){
@@ -4229,6 +4377,12 @@ function logIcon(type){
 	switch (type) {
 		case "success":
 			return '<i class="fa fa-check text-success"></i><span class="hidden">Success</span>';
+			break;
+		case "info":
+			return '<i class="fa fa-info text-info"></i><span class="hidden">Info</span>';
+			break;
+		case "debug":
+			return '<i class="fa fa-code text-primary"></i><span class="hidden">Debug</span>';
 			break;
 		case "warning":
 			return '<i class="fa fa-exclamation-triangle text-warning"></i><span class="hidden">Warning</span>';
@@ -4514,8 +4668,18 @@ function setSSO(){
 		if(v !== false){
 			local('set', i, v);
 		}else{
-		    local('r', i);
-        }
+			local('r', i);
+		}
+	});
+	// other items to remove
+	$.each(localStorage, function(i,v) {
+		if(typeof v == 'string'){
+			if(i.startsWith('user-')){
+				if(typeof activeInfo.sso[i] == 'undefined'){
+					local('r', i);
+				}
+			}
+		}
 	});
 }
 function buildStreamItem(array,source){
@@ -5096,7 +5260,7 @@ function buildRequest(array){
 	}else{
 		var header = `
 		<div class="panel-heading bg-info p-t-10 p-b-10">
-			<span class="pull-left m-t-5 mouse homepage-element-title" onclick="homepageRequests()"><img class="lazyload homepageImageTitle" data-src="plugins/images/tabs/ombi.png"> &nbsp; Requests</span>
+			<span class="pull-left m-t-5 mouse homepage-element-title" onclick="homepageRequests()"><img class="lazyload homepageImageTitle" data-src="plugins/images/tabs/ombi.png"> &nbsp; <span lang="en">Requests</span></span>
 			<div class="btn-group pull-right">
 					`+builtDropdown+`
 			</div>
@@ -5729,6 +5893,11 @@ function buildDownloaderItem(array, source, type='none'){
 			}
 			if(array.content.queueItems == 0){
 				queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
+				break;
+			}
+			if(array.content.queueItems.records == 0){
+				queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
+				break;
 			}
 			$.each(array.content.queueItems, function(i,v) {
 				count = count + 1;
@@ -5760,28 +5929,33 @@ function buildDownloaderItem(array, source, type='none'){
 			}
 			if(array.content.queueItems == 0){
 				queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
+				break;
 			}
-			$.each(array.content.queueItems, function(i,v) {
-				if(v.hasOwnProperty('movie')) {
-					count = count + 1;
-					var percent = Math.floor(((v.size - v.sizeleft) / v.size) * 100);
-					percent = (isNaN(percent)) ? '0' : percent;
-					var size = v.size != -1 ? humanFileSize(v.size, false) : "?";
-					v.name = v.movie.title;
-					queue += `
-	                <tr>
-	                    <td class="max-texts">` + v.name + `</td>
-	                    <td class="hidden-xs sonarr-` + cleanClass(v.status) + `">` + v.status + `</td>
-	                    <td class="hidden-xs">` + size + `</td>
-	                    <td class="hidden-xs"><span class="label label-info">` + v.protocol + `</span></td>
-	                    <td class="text-right">
-	                        <div class="progress progress-lg m-b-0">
-	                            <div class="progress-bar progress-bar-info" style="width: ` + percent + `%;" role="progressbar">` + percent + `%</div>
-	                        </div>
-	                    </td>
-	                </tr>
-	                `;
-				}
+			if(array.content.queueItems.records == 0){
+				queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
+				break;
+			}
+			let queueSet = (typeof array.content.queueItems.records == 'undefined') ? array.content.queueItems : array.content.queueItems.records;
+			$.each(queueSet, function(i,v) {
+				count = count + 1;
+				var percent = Math.floor(((v.size - v.sizeleft) / v.size) * 100);
+				percent = (isNaN(percent)) ? '0' : percent;
+				var size = v.size != -1 ? humanFileSize(v.size, false) : "?";
+				v.name = (typeof v.movie == 'undefined') ? v.title : v.movie.title;
+				queue += `
+                <tr>
+                    <td class="max-texts">${v.name}</td>
+                    <td class="hidden-xs sonarr-${cleanClass(v.status)}">${v.status}</td>
+                    <td class="hidden-xs">${size}</td>
+                    <td class="hidden-xs"><span class="label label-info">${v.protocol}</span></td>
+                    <td class="text-right">
+                        <div class="progress progress-lg m-b-0">
+                            <div class="progress-bar progress-bar-info" style="width: ${percent}%;" role="progressbar">${percent}%</div>
+                        </div>
+                    </td>
+                </tr>
+                `;
+
 			});
 			if(queue == ''){
 				queue = '<tr><td class="max-texts" lang="en">Nothing in queue</td></tr>';
@@ -6208,7 +6382,7 @@ function buildHealthChecks(array){
     if(array === false){ return ''; }
     var checks = (typeof array.content.checks !== 'undefined') ? array.content.checks.length : false;
     return (checks) ? `
-	<div id="allHealthChecks">
+	<div id="allHealthChecks" class="m-b-30">
 		<div class="el-element-overlay row">
 		    <div class="col-md-12">
 		        <h4 class="pull-left homepage-element-title"><span lang="en">Health Checks</span> : </h4><h4 class="pull-left">&nbsp;<span class="label label-info m-l-20 checkbox-circle good-health-checks mouse" onclick="homepageHealthChecks()">`+checks+`</span></h4>
@@ -6255,7 +6429,7 @@ function buildUnifi(array){
 	<div id="allUnifi">
 		<div class="row">
 		    <div class="col-md-12">
-		        <h4 class="pull-left homepage-element-title"><span lang="en">Unifi</span> : </h4><h4 class="pull-left">&nbsp;</h4>
+		        <h4 class="pull-left homepage-element-title"><span lang="en">UniFi</span> : </h4><h4 class="pull-left">&nbsp;</h4>
 		        <hr class="hidden-xs">
 		    </div>
 			<div class="clearfix"></div>
@@ -6316,28 +6490,20 @@ function buildUnifiItem(array){
             $.each(stats, function (istat, vstat) {
                 statItems += `
                     <div class="stat-item">
-                        <h6 class="text-uppercase">` + istat + `</h6>
-                        <b>` + vstat + `</b>
+                        <h6 class="text-uppercase">${istat}</h6>
+                        <b>${vstat}</b>
                     </div>
                     `;
             });
             items += `
-                <!--<div class="col-lg-4 col-md-6">
-                    <div class="white-box">
-                        <h3 class="box-title">` + name + `</h3>
-                        <div class="stats-row">
-                            ` + statItems + `
-                        </div>
-                    </div>
-                </div>-->
                 <div class="col-lg-4 col-md-6 col-center">
-                    <div class="panel panel-` + panelColor + `">
-                        <div class="panel-heading"> <span class="text-uppercase">` + name + `</span>
+                    <div class="panel panel-${panelColor}">
+                        <div class="panel-heading"> <span class="text-uppercase">${name}</span>
                             <div class="pull-right"><a href="#" data-perform="panel-collapse"><i class="ti-minus"></i></a></div>
                         </div>
                         <div class="panel-wrapper collapse in" aria-expanded="true">
                             <div class="panel-body">
-                               ` + statItems + `
+                               ${statItems}
                             </div>
                         </div>
                     </div>
@@ -6506,9 +6672,9 @@ function buildPiholeItem(array){
             var e = data[key];
 	        if(typeof e['FTLnotrunning'] == 'undefined') {
 		        if (length > 1 && !combine) {
-			        card += `<p class="d-inline text-muted">(` + key + `)</p>`;
+			        card += `<p class="d-inline text-muted">(${key})</p>`;
 		        }
-		        card += `<h3 data-toggle="tooltip" data-placement="right" title="` + key + `">` + e['ads_blocked_today'].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + `</h3>`;
+		        card += `<h3 data-toggle="tooltip" data-placement="right" title="${key}">${e['ads_blocked_today'].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}</h3>`;
 	        }
         };
         card += `
@@ -6531,9 +6697,9 @@ function buildPiholeItem(array){
             var e = data[key];
 	        if(typeof e['FTLnotrunning'] == 'undefined') {
 		        if (length > 1 && !combine) {
-			        card += `<p class="d-inline text-muted">(` + key + `)</p>`;
+			        card += `<p class="d-inline text-muted">(${key})</p>`;
 		        }
-		        card += `<h3 data-toggle="tooltip" data-placement="right" title="` + key + `">` + e['ads_percentage_today'].toFixed(1) + `%</h3>`
+		        card += `<h3 data-toggle="tooltip" data-placement="right" title="${key}">${e['ads_percentage_today'].toFixed(1)}%</h3>`
 	        }
         };
         card += `
@@ -6556,9 +6722,9 @@ function buildPiholeItem(array){
             var e = data[key];
 	        if(typeof e['FTLnotrunning'] == 'undefined') {
 		        if (length > 1 && !combine) {
-			        card += `<p class="d-inline text-muted">(` + key + `)</p>`;
+			        card += `<p class="d-inline text-muted">(${key})</p>`;
 		        }
-		        card += `<h3 data-toggle="tooltip" data-placement="right" title="` + key + `">` + e['domains_being_blocked'].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + `</h3>`;
+		        card += `<h3 data-toggle="tooltip" data-placement="right" title="${key}">${e['domains_being_blocked'].toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}</h3>`;
 	        }
         };
         card += `
@@ -6920,6 +7086,7 @@ function buildTautulliItem(array){
     var homestats = array.homestats.data;
     var libstats = array.libstats;
     var options = array.options;
+    var friendlyName = array.options.friendlyName;
     var buildLibraries = function(data){
         var libs = data.data;
         var movies = [];
@@ -7010,7 +7177,7 @@ function buildTautulliItem(array){
         card += (audio.length > 0) ? buildCard('artist', audio) : '';
         return card;
     };
-    var buildStats = function(data, stat){
+    var buildStats = function(data, stat, friendlyName = true){
         var card = '';
         data.forEach(e => {
             let classes = '';
@@ -7058,7 +7225,11 @@ function buildTautulliItem(array){
                                             var rowNameValue = '';
                                             var rowValue = '';
                                             if(stat == 'top_users') {
-                                                rowNameValue = item['user'];
+                                                if(friendlyName) {
+                                                    rowNameValue = item['friendly_name'];
+                                                } else {
+                                                    rowNameValue = item['user'];
+                                                }
                                                 rowValue = item['total_plays'];
                                             } else if(stat == 'top_platforms') {
                                                 rowNameValue = item['platform'];
@@ -7096,7 +7267,7 @@ function buildTautulliItem(array){
     cards += (options['popularTV']) ? buildStats(homestats, 'popular_tv') : '';
     cards += (options['topMovies']) ? buildStats(homestats, 'top_movies') : '';
     cards += (options['topTV']) ? buildStats(homestats, 'top_tv') : '';
-    cards += (options['topUsers']) ? buildStats(homestats, 'top_users') : '';
+    cards += (options['topUsers']) ? buildStats(homestats, 'top_users', friendlyName) : '';
     cards += (options['topPlatforms']) ? buildStats(homestats, 'top_platforms') : '';
     cards += '</div>';
     cards += '<div class="row tautulliLibraries">'
@@ -7232,13 +7403,13 @@ function buildWeatherAndAir(array){
                     weatherItems += `
                     <div class="col-lg-4 col-sm-12 col-xs-12">
                         <div class="white-box">
-                            <h3 class="box-title">`+moment(v.datetime).format('dddd')+`<small class="pull-right m-t-10">Feels Like `+Math.round(v.feels_like_temperature.value)+`°</small></h3>
-                            <ul class="list-inline two-part">
+                            <h3 class="box-title"><small class="pull-right m-t-10">Feels Like `+Math.round(v.feels_like_temperature.value)+`°</small>`+moment(v.datetime).format('dddd')+`<br/><small class="text-uppercase elip">`+v.weather_text+`</small></h3>
+                            <ul class="list-inline two-part" style="margin-top: -13px;">
                                 <li><i class="wi `+weatherIcon(v.icon_code, v.is_day_time)+` text-info"></i></li>
                                 <li class="text-right"><span class="counter">`+Math.round(v.temperature.value)+`<small><sup>°`+v.temperature.units+`</sup></small></span></li>
                             </ul>
                             <ul class="list-inline m-b-0">
-                                <li class="pull-left w-50 hidden-xs"><small class="text-uppercase elip">`+v.weather_text+`</small></li>
+                                <li class="pull-left w-50 hidden-xs"></li>
                                 <li class="pull-right" style="width:75px"><small><i class="wi wi-strong-wind m-r-5 text-primary tooltip-primary" data-toggle="tooltip" data-placement="top" title="" data-original-title="Wind"></i>`+Math.round(v.wind.speed.value)+` `+v.wind.speed.units+`</small></li>
                                 <li class="pull-right" style="width:75px"><small><i class="wi wi-barometer m-r-5 text-primary tooltip-primary" data-toggle="tooltip" data-placement="top" title="" data-original-title="Pressure"></i>`+Math.round(v.pressure.value)+` `+v.pressure.units+`</small></li>
                                 <li class="pull-right" style="width:45px"><small><i class="wi wi-humidity m-r-5 text-primary tooltip-primary" data-toggle="tooltip" data-placement="top" title="" data-original-title="Humidity"></i>`+Math.round(v.relative_humidity)+`</small></li>
@@ -7665,7 +7836,7 @@ function buildSpeedtest(array){
     var maximum = array.data.maximum;
     var minimum = array.data.minimum;
     var options = array.options;
-  
+
     html += `
     <div id="allSpeedtest">
     `;
@@ -8096,7 +8267,7 @@ function buildNetdataItem(array){
             html += buildGaugeChart(e,i,size,easySize,display);
         }
     });
-    
+
     return html;
 }
 function buildNetdata(array){
@@ -8239,7 +8410,7 @@ function buildNetdata(array){
     `;
 
     html += `
-    <div class="row">
+    <div class="row m-b-30">
         
             <div class="d-block text-center all-netdata">
     `;
@@ -8248,7 +8419,7 @@ function buildNetdata(array){
             </div>
         
     </div>`;
-   
+
     return (array) ? html : '';
 }
 function homepageNetdata(timeout){
@@ -8299,6 +8470,24 @@ function tryUpdateNetdata(array){
     });
     return existing;
 }
+function getTautulliFriendlyNames()
+{
+    organizrAPI2('GET','api/v2/homepage/tautulli/names').success(function(data) {
+        try {
+            let response = data.response;
+            if(response.data !== null){
+                var string = JSON.stringify(response.data, null, 4);
+                jsonEditor = ace.edit("homepageCustomStreamNamesAce");
+                jsonEditor.setValue(string);
+                $('#homepage-Plex-form-save').removeClass('hidden');
+            }
+        }catch(e) {
+	        organizrCatchError(e,data);
+        }
+    }).fail(function(xhr) {
+	    OrganizrApiError(xhr);
+    });
+}
 function homepageJackett(){
 	if(activeInfo.settings.homepage.options.alternateHomepageHeaders){
 		var header = `
@@ -8324,14 +8513,14 @@ function homepageJackett(){
 				`+header+`
 				<div class="panel-wrapper p-b-0 collapse in">
 					<div class="white-box">
-	                    <h3 class="box-title m-b-0">Search</h3>
+	                    <h3 class="box-title m-b-0" lang="en">Search</h3>
 	                    
 	                    <form onsubmit="searchJackett();return false;">
 	                        <div class="input-group m-b-30">
 	                        	<span class="input-group-btn hidden">
 									<button type="button" class="btn waves-effect waves-light btn-primary clearJackett" onclick="clearJackett();"><i class="fa fa-eraser"></i></button>
 								</span>
-	                            <input id="jackett-search-query" class="form-control" placeholder="Search for...">
+	                            <input id="jackett-search-query" class="form-control" placeholder="Search for..." lang="en">
 	                            <span class="input-group-btn">
 									<button type="submit" class="btn waves-effect waves-light btn-info"><i class="fa fa-search"></i></button>
 								</span>
@@ -8386,6 +8575,7 @@ function searchJackett(){
 	}
 	$.fn.dataTable.ext.errMode = 'none';
 	$('#jackettDataTable').DataTable().destroy();
+	let preferBlackholeDownload = activeInfo.settings.homepage.jackett.homepageJackettBackholeDownload;
 	let jackettTable = $("#jackettDataTable")
 		.on( 'error.dt', function ( e, settings, techNote, message ) {
 			console.log( 'An error has been reported by DataTables: ', message );
@@ -8411,8 +8601,8 @@ function searchJackett(){
 				{ "data": "Tracker" },
 				{ data: 'Title',
 					render: function ( data, type, row ) {
-						if(row.Comments !== null){
-							return '<a href="'+row.Comments+'" target="_blank">'+data+'</a>';
+						if(row.Details !== null){
+							return '<a href="'+row.Details+'" target="_blank">'+data+'</a>';
 						}else{
 							return data;
 						}
@@ -8434,10 +8624,12 @@ function searchJackett(){
 				{ data: 'MagnetUri',
 					render: function ( data, type, row ) {
 						if ( type === 'display' || type === 'filter' ) {
-							if(data !== null){
+							if(preferBlackholeDownload === true && row.BlackholeLink !== null){
+								return '<a onclick="jackettDownload(\''+row.BlackholeLink+'\');return false;" href="#"><i class="fa fa-cloud-download"></i></a>';
+							}else if(data !== null){
 								return '<a href="'+data+'" target="_blank"><i class="fa fa-magnet"></i></a>';
-							}else if(row.Comments !== null){
-								return '<a href="'+row.Comments+'" target="_blank"><i class="fa fa-cloud-download"></i></a>';
+							}else if(row.Details !== null){
+								return '<a href="'+row.Details+'" target="_blank"><i class="fa fa-cloud-download"></i></a>';
 							}else if(row.Guid !== null){
 								return '<a href="'+row.Guid+'" target="_blank"><i class="fa fa-cloud-download"></i></a>';
 							}else if(row.Link !== null){
@@ -8458,6 +8650,19 @@ function searchJackett(){
 			}
 		} );
 
+}
+function jackettDownload(url) {
+	let blackholeLink=url.substring(url.indexOf("/bh/"));
+	var post = {
+		url: blackholeLink
+	};
+	organizrAPI2('POST', 'api/v2/homepage/jackett/download/', post, true)
+		.success(function() {
+			message('Torrent downloaded','',activeInfo.settings.notifications.position,"#FFF","success","5000");
+		})
+		.fail(function(xhr) {
+			OrganizrApiError(xhr, 'Error downloading torrent');
+		});
 }
 function homepageOctoprint(timeout){
     var timeout = (typeof timeout !== 'undefined') ? timeout : activeInfo.settings.homepage.refresh.homepageOctoprintRefresh;
@@ -8656,7 +8861,7 @@ const plex_oauth_loader = '<style>' +
     '<div class="login-loader-message">' +
     '<div class="login-loader"></div>' +
     '<br>' +
-    'Redirecting to the Plex login page...' +
+    'Redirecting to the login page...' +
     '</div>' +
     '</div>';
 function closePlexOAuthWindow() {
@@ -8743,6 +8948,13 @@ function PlexOAuth(success, error, pre) {
             error()
         }
     });
+}
+function openOAuth(provider){
+	// will actually fix this later
+	closePlexOAuthWindow();
+	plex_oauth_window = PopupCenter('', 'OAuth', 600, 700);
+	$(plex_oauth_window.document.body).html(plex_oauth_loader);
+	plex_oauth_window.location = 'api/v2/oauth/trakt';
 }
 function encodeData(data) {
     return Object.keys(data).map(function(key) {
@@ -8892,6 +9104,11 @@ function requestSearchList(list,page=1) {
 function requestNewID(id) {
 	return $.ajax({
 		url: "https://api.themoviedb.org/3/tv/"+id+"/external_ids?api_key=83cf4ee97bb728eeaf9d4a54e64356a1&language=en-US",
+	});
+}
+function getTmdbImages(id, type) {
+	return $.ajax({
+		url: `https://api.themoviedb.org/3/${type}/${id}/images?api_key=83cf4ee97bb728eeaf9d4a54e64356a1`,
 	});
 }
 function inlineLoad(){
@@ -9666,6 +9883,92 @@ function checkIfTabNameExists(tabName){
         return true;
     }
 }
+function getLatestBlackberryThemes() {
+	return $.ajax({
+		url: 'https://api.github.com/repos/Archmonger/Blackberry-Themes/contents/Themes',
+	});
+}
+function getBlackberryTheme(theme) {
+	return $.ajax({
+		url: 'https://api.github.com/repos/Archmonger/Blackberry-Themes/contents/Themes/' +  theme + '/Icons',
+	});
+}
+function showBlackberryThemes(target){
+	getLatestBlackberryThemes().success(function(data) {
+		try {
+			let themes = '';
+			$.each(data, function(i,v) {
+				if(v.name !== 'Beta'){
+					themes += `<a href="javascript:selectBlackberryTheme('${v.name}','${target}');" class="list-group-item"><span><img class="themeIcon pull-right" src="https://raw.githubusercontent.com/Archmonger/Blackberry-Themes/master/Themes/${v.name}/Icons/preview.png"></span>${v.name}</a>`;
+				}
+			});
+			themes = `<div class="list-group">${themes}</div>`;
+			let html = `
+			<div class="panel">
+				<div class="bg-org2">
+					<div class="panel-heading">Choose a Theme</div>
+					<div class="panel-body text-left">${themes}</div>
+				</div>
+			</div>
+			`;
+			swal({
+				content: createElementFromHTML(html),
+				button: 'Close',
+				className: 'orgErrorAlert',
+				dangerMode: true
+			});
+		}catch(e) {
+			organizrCatchError(e,data);
+		}
+	}).fail(function(xhr) {
+		OrganizrApiError(xhr);
+	});
+}
+function selectBlackberryTheme(theme, target){
+	getBlackberryTheme(theme).success(function(data) {
+		try {
+			let icons = '';
+			$.each(data, function(i,v) {
+				v.name = v.name.split('.')[0];
+				v.name = cleanClass(v.name);
+				icons += `<a href="javascript:swal.close();$('#${target}').val('${v.download_url}')"><img alt="${v.name}" data-toggle="tooltip" data-placement="top" title="" data-original-title="${v.name}"src="${v.download_url}" ></a>`;
+			});
+			icons = `<div id="gallery-content-center">${icons}</div>`;
+			let html = `
+			<div class="panel">
+				<div class="bg-org2">
+					<div class="panel-heading">Choose an Icon</div>
+					<div class="panel-body text-left">${icons}</div>
+				</div>
+			</div>
+			`;
+			swal({
+				content: createElementFromHTML(html),
+				buttons: {
+					back: {
+						text: "Back To Themes",
+						value: "back",
+						dangerMode: true,
+						className: "bg-org-alt"
+					}
+				},
+				className: 'orgErrorAlert',
+				dangerMode: true
+			})
+			.then((value) => {
+				switch (value) {
+					case "back":
+						showBlackberryThemes();
+						break;
+				}
+			});
+		}catch(e) {
+			organizrCatchError(e,data);
+		}
+	}).fail(function(xhr) {
+		OrganizrApiError(xhr);
+	});
+}
 function orgErrorAlert(error){
 	let showError = false;
 	if(typeof activeInfo === 'undefined'){
@@ -9680,13 +9983,13 @@ function orgErrorAlert(error){
 	    <div class="panel">
             <div class="bg-org2">
                 <div class="panel-heading">ERROR</div>
-                <div class="panel-body text-left">`+error+`</div>
+                <div class="panel-body text-left">${error}</div>
             </div>
         </div>
 	    `;
 	    swal({
 		    content: createElementFromHTML(div),
-		    button: "OK",
+		    button: 'OK',
 		    className: 'orgErrorAlert',
 		    dangerMode: true
 	    });
@@ -9760,6 +10063,43 @@ function toggleDebug(){
 		className: 'orgErrorAlert',
 	});
 	getDebugPreInfo();
+}
+function toggleCalendarFilter(){
+	var div = `
+	<div id="calendar-filter-modal" class="panel panel-inverse">
+        <div class="panel-heading"><span class="text-uppercase" lang="en">Filter Calendar</span></div>
+        <div class="panel-wrapper collapse in" aria-expanded="true">
+            <div class="panel-body">
+	            <div class="row">
+                    <div class="col-md-12">
+                        <label class="control-label" lang="en">Choose Media Type</label>
+                        <select class="form-control form-white" data-placeholder="Choose media type" id="choose-calender-filter">
+                            <option value="all" lang="en">All</option>
+                            <option value="tv" lang="en">TV</option>
+                            <option value="film" lang="en">Movie</option>
+                            <option value="music" lang="en">Music</option>
+                        </select>
+                    </div>
+                    <div class="col-md-12">
+                        <label class="control-label" lang="en">Choose Media Status</label>
+                        <select class="form-control form-white" data-placeholder="Choose media status" id="choose-calender-filter-status">
+                            <option value="all" lang="en">All</option>
+                            <option value="text-success" lang="en">Downloaded</option>
+                            <option value="text-info" lang="en">Unaired</option>
+                            <option value="text-danger" lang="en">Missing</option>
+                            <option value="text-primary animated flash" lang="en">Premier</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+	</div>
+	`;
+	swal({
+		content: createElementFromHTML(div),
+		className: 'bg-org',
+		button: false
+	});
 }
 function closeOrgError(){
     $('#main-org-error-container').removeClass('show');
@@ -9917,6 +10257,10 @@ function showPlexTokenForm(selector = null){
 		            <label class="control-label" for="plex-token-form-password" lang="en">Plex Password</label>
 		            <input type="password" class="form-control" id="plex-token-form-password" name="password"  required="">
 		        </div>
+		        <div class="form-group">
+		            <label class="control-label" for="plex-token-form-tfa" lang="en">Plex 2FA (if applicable)</label>
+		            <input type="text" class="form-control" id="plex-token-form-tfa" name="tfa" >
+		        </div>
 		    </fieldset>
 		    <button class="btn btn-sm btn-info btn-rounded waves-effect waves-light pull-right row b-none" onclick="getPlexToken('`+selector+`')" type="button"><span class="btn-label"><i class="fa fa-ticket"></i></span><span lang="en">Grab It</span></button>
 		    <div class="clearfix"></div>
@@ -9933,6 +10277,7 @@ function getPlexToken(selector) {
 	$('.plexTokenHeader').addClass('panel-info').removeClass('panel-warning').removeClass('panel-danger');
 	var plex_username = $('#get-plex-token-form [name=username]').val().trim();
 	var plex_password = $('#get-plex-token-form [name=password]').val().trim();
+	var plex_tfa = $('#get-plex-token-form [name=tfa]').val().trim();
 	if ((plex_password !== '') && (plex_password !== '')) {
 		$.ajax({
 			type: 'POST',
@@ -9944,7 +10289,7 @@ function getPlexToken(selector) {
 			url: 'https://plex.tv/users/sign_in.json',
 			data: {
 				'user[login]': plex_username,
-				'user[password]': plex_password,
+				'user[password]': plex_password + plex_tfa,
 				force: true
 			},
 			cache: false,
@@ -10240,9 +10585,15 @@ function OrganizrApiError(xhr, secondaryMessage = null){
 	}
 	return false;
 }
+function checkForUpdates(){
+	if(activeInfo.user.loggedin && activeInfo.user.groupID <= 1){
+		updateCheck();
+		checkCommitLoad();
+	}
+}
 function launch(){
 	console.info('https://docs.organizr.app/books/setup-features/page/organizr-20--%3E-21-migration-guide');
-	organizrConsole('API V2 API','If you see a 404 Error below this line, you have not setup the new location block... See URL above this line', 'error');
+	organizrConsole('API V2 API','If you see a 404 Error for api/v2/launch below this line, you have not setup the new location block... See URL above this line', 'error');
 	organizrConnect('api/v2/launch').success(function (data) {
         try {
             let json = data.response;
@@ -10271,6 +10622,8 @@ function launch(){
 		        style:json.data.style,
 		        version:json.data.version
 	        };
+	        // Add element to signal activeInfo Ready
+	        $('#wrapper').after('<div id="activeInfo"></div>');
 	        console.info("%c Organizr %c ".concat(currentVersion, " "), "color: white; background: #66D9EF; font-weight: 700; font-size: 24px; font-family: Monospace;", "color: #66D9EF; background: white; font-weight: 700; font-size: 24px; font-family: Monospace;");
 	        console.info("%c Status %c ".concat("Starting Up...", " "), "color: white; background: #F92671; font-weight: 700;", "color: #F92671; background: white; font-weight: 700;");
 	        local('set','initial',true);
@@ -10289,7 +10642,7 @@ function launch(){
 			        buildLanguage('wizard');
 			        break;
 		        case "dependencies":
-			        buildDependencyCheck(json.data);
+			        buildDependencyCheck(json);
 			        break;
 		        case "ok":
 			        loadAppearance(json.data.appearance);
@@ -10304,6 +10657,7 @@ function launch(){
 				        organizrSpecialSettings(json.data);
 				        getPingList(json);
 				        checkLocalForwardStatus(json.data);
+				        checkForUpdates();
 			        }
 			        loadCustomJava(json.data.appearance);
 			        if(getCookie('lockout')){

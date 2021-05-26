@@ -2,13 +2,19 @@
 
 trait TautulliHomepageItem
 {
-	public function tautulliSettingsArray()
+	public function tautulliSettingsArray($infoOnly = false)
 	{
-		return array(
+		$homepageInformation = [
 			'name' => 'Tautulli',
 			'enabled' => strpos('personal', $this->config['license']) !== false,
 			'image' => 'plugins/images/tabs/tautulli.png',
 			'category' => 'Monitor',
+			'settingsArray' => __FUNCTION__
+		];
+		if ($infoOnly) {
+			return $homepageInformation;
+		}
+		$homepageSettings = array(
 			'settings' => array(
 				'Enable' => array(
 					array(
@@ -139,6 +145,13 @@ trait TautulliHomepageItem
 						'value' => $this->config['homepageTautulliMiscAuth'],
 						'options' => $this->groupOptions
 					),
+					array(
+						'type' => 'switch',
+						'name' => 'tautulliFriendlyName',
+						'label' => 'Use Friendly Name',
+						'value' => $this->config['tautulliFriendlyName'],
+						'help' => 'Use the friendly name set in tautulli for users.',
+					),
 				),
 				'Test Connection' => array(
 					array(
@@ -156,6 +169,7 @@ trait TautulliHomepageItem
 				)
 			)
 		);
+		return array_merge($homepageInformation, $homepageSettings);
 	}
 	
 	public function testConnectionTautulli()
@@ -172,7 +186,8 @@ trait TautulliHomepageItem
 		$apiURL = $url . '/api/v2?apikey=' . $this->config['tautulliApikey'];
 		try {
 			$homestatsUrl = $apiURL . '&cmd=get_home_stats&grouping=1';
-			$homestats = Requests::get($homestatsUrl, [], []);
+			$options = $this->requestOptions($this->config['tautulliURL'], false, $this->config['homepageTautulliRefresh']);
+			$homestats = Requests::get($homestatsUrl, [], $options);
 			if ($homestats->success) {
 				$this->setAPIResponse('success', 'API Connection succeeded', 200);
 				return true;
@@ -242,7 +257,8 @@ trait TautulliHomepageItem
 		$nowPlayingWidth = $this->getCacheImageSize('npw');
 		try {
 			$homestatsUrl = $apiURL . '&cmd=get_home_stats&grouping=1';
-			$homestats = Requests::get($homestatsUrl, [], []);
+			$options = $this->requestOptions($this->config['tautulliURL'], false, $this->config['homepageTautulliRefresh']);
+			$homestats = Requests::get($homestatsUrl, [], $options);
 			if ($homestats->success) {
 				$homestats = json_decode($homestats->body, true);
 				$api['homestats'] = $homestats['response'];
@@ -263,7 +279,8 @@ trait TautulliHomepageItem
 				$this->cacheImage($url . '/images/platforms/' . $platform . '.svg', 'tautulli-' . $platform, 'svg');
 			}
 			$libstatsUrl = $apiURL . '&cmd=get_libraries';
-			$libstats = Requests::get($libstatsUrl, [], []);
+			$options = $this->requestOptions($this->config['tautulliURL'], false, $this->config['homepageTautulliRefresh']);
+			$libstats = Requests::get($libstatsUrl, [], $options);
 			if ($libstats->success) {
 				$libstats = json_decode($libstats->body, true);
 				$api['libstats'] = $libstats['response'];
@@ -283,6 +300,7 @@ trait TautulliHomepageItem
 				'popularMovies' => $this->config['tautulliPopularMovies'],
 				'popularTV' => $this->config['tautulliPopularTV'],
 				'title' => $this->config['tautulliHeaderToggle'],
+				'friendlyName' => $this->config['tautulliFriendlyName'],
 			];
 			$ids = []; // Array of stat_ids to remove from the returned array
 			if (!$this->qualifyRequest($this->config['homepageTautulliLibraryAuth'])) {

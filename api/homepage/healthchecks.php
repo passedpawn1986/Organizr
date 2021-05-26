@@ -2,13 +2,19 @@
 
 trait HealthChecksHomepageItem
 {
-	public function healthChecksSettingsArray()
+	public function healthChecksSettingsArray($infoOnly = false)
 	{
-		return array(
+		$homepageInformation = [
 			'name' => 'HealthChecks',
 			'enabled' => true,
 			'image' => 'plugins/images/tabs/healthchecks.png',
 			'category' => 'Monitor',
+			'settingsArray' => __FUNCTION__
+		];
+		if ($infoOnly) {
+			return $homepageInformation;
+		}
+		$homepageSettings = array(
 			'settings' => array(
 				'Enable' => array(
 					array(
@@ -60,6 +66,7 @@ trait HealthChecksHomepageItem
 				),
 			)
 		);
+		return array_merge($homepageInformation, $homepageSettings);
 	}
 	
 	public function healthChecksHomepagePermissions($key = null)
@@ -115,7 +122,7 @@ trait HealthChecksHomepageItem
 			$url = $this->qualifyURL($this->config['healthChecksURL']) . '/' . $tags;
 			try {
 				$headers = array('X-Api-Key' => $token);
-				$options = ($this->localURL($url)) ? array('verify' => false) : array();
+				$options = ($this->localURL($url)) ? array('verify' => false) : array('verify' => $this->getCert());
 				$response = Requests::get($url, $headers, $options);
 				if ($response->success) {
 					$healthResults = json_decode($response->body, true);

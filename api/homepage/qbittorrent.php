@@ -2,13 +2,19 @@
 
 trait QBitTorrentHomepageItem
 {
-	public function qBittorrentSettingsArray()
+	public function qBittorrentSettingsArray($infoOnly = false)
 	{
-		return array(
+		$homepageInformation = [
 			'name' => 'qBittorrent',
 			'enabled' => strpos('personal', $this->config['license']) !== false,
 			'image' => 'plugins/images/tabs/qBittorrent.png',
 			'category' => 'Downloader',
+			'settingsArray' => __FUNCTION__
+		];
+		if ($infoOnly) {
+			return $homepageInformation;
+		}
+		$homepageSettings = array(
 			'settings' => array(
 				'Enable' => array(
 					array(
@@ -33,6 +39,12 @@ trait QBitTorrentHomepageItem
 						'value' => $this->config['qBittorrentURL'],
 						'help' => 'Please make sure to use local IP address and port - You also may use local dns name too.',
 						'placeholder' => 'http(s)://hostname:port'
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'qBittorrentDisableCertCheck',
+						'label' => 'Disable Certificate Check',
+						'value' => $this->config['qBittorrentDisableCertCheck']
 					),
 					array(
 						'type' => 'select',
@@ -109,6 +121,7 @@ trait QBitTorrentHomepageItem
 				)
 			)
 		);
+		return array_merge($homepageInformation, $homepageSettings);
 	}
 	
 	public function testConnectionQBittorrent()
@@ -123,7 +136,7 @@ trait QBitTorrentHomepageItem
 		$apiVersionQuery = ($this->config['qBittorrentApiVersion'] == '1') ? '/query/torrents?sort=' : '/api/v2/torrents/info?sort=';
 		$url = $digest['scheme'] . '://' . $digest['host'] . $digest['port'] . $digest['path'] . $apiVersionLogin;
 		try {
-			$options = ($this->localURL($this->config['qBittorrentURL'])) ? array('verify' => false) : array();
+			$options = $this->requestOptions($this->config['qBittorrentURL'], $this->config['qBittorrentDisableCertCheck'], $this->config['homepageDownloadRefresh']);
 			$response = Requests::post($url, array(), $data, $options);
 			$reflection = new ReflectionClass($response->cookies);
 			$cookie = $reflection->getProperty("cookies");
@@ -215,7 +228,7 @@ trait QBitTorrentHomepageItem
 		$apiVersionQuery = ($this->config['qBittorrentApiVersion'] == '1') ? '/query/torrents?sort=' : '/api/v2/torrents/info?sort=';
 		$url = $digest['scheme'] . '://' . $digest['host'] . $digest['port'] . $digest['path'] . $apiVersionLogin;
 		try {
-			$options = ($this->localURL($this->config['qBittorrentURL'])) ? array('verify' => false) : array();
+			$options = $this->requestOptions($this->config['qBittorrentURL'], $this->config['qBittorrentDisableCertCheck'], $this->config['homepageDownloadRefresh']);
 			$response = Requests::post($url, array(), $data, $options);
 			$reflection = new ReflectionClass($response->cookies);
 			$cookie = $reflection->getProperty("cookies");

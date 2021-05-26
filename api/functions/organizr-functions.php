@@ -336,7 +336,7 @@ trait OrganizrFunctions
 			$buttons .= '<button class="btn m-b-20 m-r-20 bg-primary text-muted waves-effect waves-light importUsersButton" onclick="importUsers(\'jellyfin\')" type="button"><span class="btn-label"><i class="mdi mdi-fish"></i></span><span lang="en">Import Jellyfin Users</span></button>';
 		}
 		if (!empty($this->config['embyURL']) && !empty($this->config['embyToken'])) {
-			$buttons .= '<button class="btn m-b-20 m-r-20 bg-emby text-muted waves-effect waves-light importUsersButton" onclick="importUsers(\'emby\')" type="button"><span class="btn-label"><i class="mdi mdi-emby"></i></span><span lang="en">Import Jellyfin Users</span></button>';
+			$buttons .= '<button class="btn m-b-20 m-r-20 bg-emby text-muted waves-effect waves-light importUsersButton" onclick="importUsers(\'emby\')" type="button"><span class="btn-label"><i class="mdi mdi-emby"></i></span><span lang="en">Import Emby Users</span></button>';
 		}
 		return ($buttons !== '') ? $buttons : $emptyButtons;
 	}
@@ -573,6 +573,16 @@ trait OrganizrFunctions
 		}
 	}
 	
+	public function clearJellyfinTokens()
+	{
+		foreach (array_keys($_COOKIE) as $k => $v) {
+			if (strpos($v, 'user-') !== false) {
+				$this->coookie('delete', $v);
+			}
+		}
+		$this->coookie('delete', 'jellyfin_credentials');
+	}
+	
 	public function analyzeIP($ip)
 	{
 		if (strpos($ip, '/') !== false) {
@@ -599,5 +609,24 @@ trait OrganizrFunctions
 			$approved = true;
 		}
 		return $approved;
+	}
+	
+	public function userDefinedIdReplacementLink($link, $variables)
+	{
+		return strtr($link, $variables);
+	}
+	
+	public function requestOptions($url, $override = false, $timeout = null)
+	{
+		$options = [];
+		if (is_numeric($timeout)) {
+			$timeout = $timeout / 1000;
+			array_push($options, array('timeout' => $timeout));
+		}
+		if ($this->localURL($url, $override)) {
+			array_push($options, array('verify' => false));
+			
+		}
+		return $options;
 	}
 }

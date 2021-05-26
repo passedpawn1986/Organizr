@@ -2,13 +2,19 @@
 
 trait TransmissionHomepageItem
 {
-	public function transmissionSettingsArray()
+	public function transmissionSettingsArray($infoOnly = false)
 	{
-		return array(
+		$homepageInformation = [
 			'name' => 'Transmission',
 			'enabled' => strpos('personal', $this->config['license']) !== false,
 			'image' => 'plugins/images/tabs/transmission.png',
 			'category' => 'Downloader',
+			'settingsArray' => __FUNCTION__
+		];
+		if ($infoOnly) {
+			return $homepageInformation;
+		}
+		$homepageSettings = array(
 			'settings' => array(
 				'Enable' => array(
 					array(
@@ -33,6 +39,12 @@ trait TransmissionHomepageItem
 						'value' => $this->config['transmissionURL'],
 						'help' => 'Please do not included /web in URL.  Please make sure to use local IP address and port - You also may use local dns name too.',
 						'placeholder' => 'http(s)://hostname:port'
+					),
+					array(
+						'type' => 'switch',
+						'name' => 'transmissionDisableCertCheck',
+						'label' => 'Disable Certificate Check',
+						'value' => $this->config['transmissionDisableCertCheck']
 					),
 					array(
 						'type' => 'input',
@@ -89,6 +101,7 @@ trait TransmissionHomepageItem
 				)
 			)
 		);
+		return array_merge($homepageInformation, $homepageSettings);
 	}
 	
 	public function testConnectionTransmission()
@@ -98,10 +111,10 @@ trait TransmissionHomepageItem
 			return false;
 		}
 		$digest = $this->qualifyURL($this->config['transmissionURL'], true);
-		$passwordInclude = ($this->config['transmissionUsername'] != '' && $this->config['transmissionPassword'] != '') ? $this->config['transmissionUsername'] . ':' . $this->decrypt($this->config['transmissionPassword']) . "@" : '';
+		$passwordInclude = ($this->config['transmissionUsername'] != '' && $this->config['transmissionPassword'] != '') ? $this->config['transmissionUsername'] . ':' . rawurlencode($this->decrypt($this->config['transmissionPassword'])) . "@" : '';
 		$url = $digest['scheme'] . '://' . $passwordInclude . $digest['host'] . $digest['port'] . $digest['path'] . '/rpc';
 		try {
-			$options = ($this->localURL($this->config['transmissionURL'])) ? array('verify' => false) : array();
+			$options = $this->requestOptions($this->config['transmissionURL'], $this->config['transmissionDisableCertCheck'], $this->config['homepageDownloadRefresh']);
 			$response = Requests::get($url, array(), $options);
 			if ($response->headers['x-transmission-session-id']) {
 				$headers = array(
@@ -186,10 +199,10 @@ trait TransmissionHomepageItem
 			return false;
 		}
 		$digest = $this->qualifyURL($this->config['transmissionURL'], true);
-		$passwordInclude = ($this->config['transmissionUsername'] != '' && $this->config['transmissionPassword'] != '') ? $this->config['transmissionUsername'] . ':' . $this->decrypt($this->config['transmissionPassword']) . "@" : '';
+		$passwordInclude = ($this->config['transmissionUsername'] != '' && $this->config['transmissionPassword'] != '') ? $this->config['transmissionUsername'] . ':' . rawurlencode($this->decrypt($this->config['transmissionPassword'])) . "@" : '';
 		$url = $digest['scheme'] . '://' . $passwordInclude . $digest['host'] . $digest['port'] . $digest['path'] . '/rpc';
 		try {
-			$options = ($this->localURL($this->config['transmissionURL'])) ? array('verify' => false) : array();
+			$options = $this->requestOptions($this->config['transmissionURL'], $this->config['transmissionDisableCertCheck'], $this->config['homepageDownloadRefresh']);
 			$response = Requests::get($url, array(), $options);
 			if ($response->headers['x-transmission-session-id']) {
 				$headers = array(

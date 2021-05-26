@@ -2,14 +2,37 @@
 
 trait SonarrHomepageItem
 {
-	public function sonarrSettingsArray()
+	public function sonarrSettingsArray($infoOnly = false)
 	{
-		return array(
+		$homepageInformation = [
 			'name' => 'Sonarr',
 			'enabled' => strpos('personal', $this->config['license']) !== false,
 			'image' => 'plugins/images/tabs/sonarr.png',
 			'category' => 'PVR',
+			'settingsArray' => __FUNCTION__
+		];
+		if ($infoOnly) {
+			return $homepageInformation;
+		}
+		$homepageSettings = array(
+			'docs' => 'https://docs.organizr.app/books/setup-features/page/sonarr',
 			'settings' => array(
+				'About' => array(
+					array(
+						'type' => 'html',
+						'override' => 12,
+						'label' => '',
+						'html' => '
+							<div class="panel panel-default">
+								<div class="panel-wrapper collapse in">
+									<div class="panel-body">
+										<h3 lang="en">Sonarr Homepage Item</h3>
+										<p lang="en">This item allows access to Sonarr\'s calendar data and aggregates it to Organizr\'s calendar.  Along with that you also have the Downloader function that allow access to Sonarr\'s queue.  The last item that is included is the API SOCKS function which acts as a middleman between API\'s which is useful if you are not port forwarding or reverse proxying Sonarr.</p>
+									</div>
+								</div>
+							</div>'
+					),
+				),
 				'Enable' => array(
 					array(
 						'type' => 'switch',
@@ -49,11 +72,7 @@ trait SonarrHomepageItem
 						'html' => '
 							<div class="panel panel-default">
 								<div class="panel-wrapper collapse in">
-									<div class="panel-body">
-										<h3 lang="en">Sonarr SOCKS API Connection</h3>
-										<p>Using this feature allows you to access the Sonarr API without having to reverse proxy it.  Just access it from: </p>
-										<code>' . $this->getServerPath() . 'api/v2/socks/sonarr/</code>
-									</div>
+									<div class="panel-body">' . $this->socksHeadingHTML('sonarr') . '</div>
 								</div>
 							</div>'
 					),
@@ -179,6 +198,7 @@ trait SonarrHomepageItem
 				)
 			)
 		);
+		return array_merge($homepageInformation, $homepageSettings);
 	}
 	
 	public function testConnectionSonarr()
@@ -196,8 +216,8 @@ trait SonarrHomepageItem
 		$list = $this->csvHomepageUrlToken($this->config['sonarrURL'], $this->config['sonarrToken']);
 		foreach ($list as $key => $value) {
 			try {
-				$downloader = new Kryptonit3\Sonarr\Sonarr($value['url'], $value['token']);
-				$results = $downloader->getSystemStatus();
+				$downloader = new Kryptonit3\Sonarr\Sonarr($value['url'], $value['token'], 'sonarr');
+				$results = $downloader->getRootFolder();
 				$downloadList = json_decode($results, true);
 				if (is_array($downloadList) || is_object($downloadList)) {
 					$queue = (array_key_exists('error', $downloadList)) ? $downloadList['error']['msg'] : $downloadList;
@@ -295,7 +315,7 @@ trait SonarrHomepageItem
 		$list = $this->csvHomepageUrlToken($this->config['sonarrURL'], $this->config['sonarrToken']);
 		foreach ($list as $key => $value) {
 			try {
-				$downloader = new Kryptonit3\Sonarr\Sonarr($value['url'], $value['token']);
+				$downloader = new Kryptonit3\Sonarr\Sonarr($value['url'], $value['token'], 'sonarr');
 				$results = $downloader->getQueue();
 				$downloadList = json_decode($results, true);
 				if (is_array($downloadList) || is_object($downloadList)) {
@@ -328,7 +348,7 @@ trait SonarrHomepageItem
 		$list = $this->csvHomepageUrlToken($this->config['sonarrURL'], $this->config['sonarrToken']);
 		foreach ($list as $key => $value) {
 			try {
-				$sonarr = new Kryptonit3\Sonarr\Sonarr($value['url'], $value['token']);
+				$sonarr = new Kryptonit3\Sonarr\Sonarr($value['url'], $value['token'], 'sonarr');
 				$sonarr = $sonarr->getCalendar($startDate, $endDate, $this->config['sonarrUnmonitored']);
 				$result = json_decode($sonarr, true);
 				if (is_array($result) || is_object($result)) {

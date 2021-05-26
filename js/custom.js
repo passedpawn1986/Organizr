@@ -44,7 +44,7 @@ $(document).ready(function () {
 
             /* ===== This is for resizing window ===== */
 
-            if (width < 1170) {
+            if (width < 768) {
                 body.addClass('content-wrapper');
                 $(".sidebar-nav, .slimScrollDiv").css("overflow-x", "visible").parent().css("overflow", "visible");
             } else {
@@ -436,7 +436,7 @@ $(document).on("click", ".reset-button", function(e) {
 		var post = {
 	        email:email
         };
-	    message('Submitting request...',html.message,activeInfo.settings.notifications.position,'#FFF','info','10000');
+	    message('Submitting request...','',activeInfo.settings.notifications.position,'#FFF','info','10000');
         organizrAPI2('POST','api/v2/users/recover',post).success(function(data) {
             var html = data.response;
             message('Recover Password',html.message,activeInfo.settings.notifications.position,'#FFF','success','10000');
@@ -584,6 +584,7 @@ $(document).on("click", ".addNewUser", function () {
 		message('User Created',response.message,activeInfo.settings.notifications.position,"#FFF","success","5000");
 		if(callbacks){ callbacks.fire(); }
 		clearForm('#new-user-form');
+		$('#jsGrid-Users').jsGrid('render');
 		$.magnificPopup.close();
 	}).fail(function(xhr) {
 		OrganizrApiError(xhr, 'API Error');
@@ -848,25 +849,6 @@ function convertMinutesToMs(minutes){
         return (minutes * 1000) * 60;
     }
 }
-//EDIT TAB GET ID
-$(document).on("click", ".editTabButton", function () {
-    //tabActionTime
-    //tabActionType
-    $('#edit-tab-form [name=name]').val($(this).parent().parent().attr("data-name"));
-    $('#originalTabName').html($(this).parent().parent().attr("data-name"));
-    $('#edit-tab-form [name=url]').val($(this).parent().parent().attr("data-url"));
-    $('#edit-tab-form [name=url_local]').val($(this).parent().parent().attr("data-local-url"));
-    $('#edit-tab-form [name=ping_url]').val($(this).parent().parent().attr("data-ping-url"));
-    $('#edit-tab-form [name=image]').val($(this).parent().parent().attr("data-image"));
-    $('#edit-tab-form [name=id]').val($(this).parent().parent().attr("data-id"));
-    $('#edit-tab-form [name=timeout_ms]').val(convertMsToMinutes($(this).parent().parent().attr("data-tab-action-time")));
-    $('#edit-tab-form [name=timeout]').val($(this).parent().parent().attr("data-tab-action-type"));
-    if( $(this).parent().parent().attr("data-url").indexOf('/?v') > 0){
-        $('#edit-tab-form [name=url]').prop('disabled', 'true');
-    }else{
-        $('#edit-tab-form [name=url]').prop('disabled', null);
-    }
-});
 //EDIT TAB
 $(document).on("click", ".editTab", function () {
     var originalTabName = $('#originalTabName').html();
@@ -943,7 +925,8 @@ $(document).on("click", ".addNewTab", function () {
 	    organizrAPI2('POST','api/v2/tabs',tabInfo,true).success(function(data) {
 		    try {
 			    var response = data.response;
-			    console.log(response);
+			    $('.tabIconImageList').val(null).trigger('change');
+			    $('.tabIconIconList').val(null).trigger('change');
 		    }catch(e) {
 			    organizrCatchError(e,data);
 		    }
@@ -1091,7 +1074,7 @@ $(document).on("click", ".savecustomHTMLtwoTextarea", function () {
     $('.customHTMLtwoTextarea').val(customHTMLtwoEditor.getValue()).trigger('change');
 });
 
-$(document).on('focusout', 'input.pick-a-color', function(e) {
+$(document).on('focusout', 'input.pick-a-color-custom-options', function(e) {
     var original = $(this).attr('data-original');
     var newValue = $(this).val();
     if((original !== newValue) && (newValue !== '#987654') && newValue !== ''){
@@ -1686,36 +1669,9 @@ Mousetrap.bind('ctrl+shift+down', function(e) {
     nextTab.trigger("click");
     return false;
 });
-$(document).on('change', "#new-tab-form-chooseImage", function (e) {
-    var newIcon = $('#new-tab-form-chooseImage').val();
-    if(newIcon !== 'Select or type Icon'){
-        $('#new-tab-form-inputImageNew').val(newIcon);
-    }
-});
-$(document).on('change', "#edit-tab-form-chooseImage", function (e) {
-    var newIcon = $('#edit-tab-form-chooseImage').val();
-    if(newIcon !== 'Select or type Icon'){
-        $('#edit-tab-form-inputImage').val(newIcon);
-    }
-});
-$(document).on('change', "#new-tab-form-chooseIcon", function (e) {
-    var newIcon = $('#new-tab-form-chooseIcon').val();
-    if(newIcon !== 'Select or type Icon'){
-        $('#new-tab-form-inputImageNew').val(newIcon);
-    }
-});
-$(document).on('change', "#edit-tab-form-chooseIcon", function (e) {
-    var newIcon = $('#edit-tab-form-chooseIcon').val();
-    if(newIcon !== 'Select or type Icon'){
-        $('#edit-tab-form-inputImage').val(newIcon);
-    }
-});
 $(document).on('change', "#choose-calender-filter, #choose-calender-filter-status", function (e) {
     filter = $('#choose-calender-filter').val();
     filterDownload = $('#choose-calender-filter-status').val();
-    $('#calendar-filter-modal').modal('hide');
-    console.log("Calendar Filter: "+filter);
-    console.log("Calendar Filter: "+filterDownload);
     $('#calendar').fullCalendar('rerenderEvents');
     new SimpleBar($('.fc-scroller')[0]);
 });
@@ -1770,7 +1726,7 @@ $(document).on('click', ".help-modal", function(){
             break;
         default:
             return null;
-        
+
     }
     $('#help-modal-title').html(title);
     $('#help-modal-body').html(body);
@@ -1859,4 +1815,89 @@ $(document).on('click', 'li a[aria-controls="Custom data"]', function() {
 });
 $(document).on('click', '.imageManagerItem', function() {
 	createImageSwal($(this));
+});
+
+$(document).on('click', '.close-editHomepageItemDiv',function () {
+	$('body').removeAttr('style');
+	$('html').removeAttr('style');
+})
+// Control init of custom plex JSON editor
+$(document).on('click', '#homepage-Plex-form li a[aria-controls="Misc Options"]', function() {
+    var resizeEditor = function(jsonEditor) {
+        const aceEditor = jsonEditor;
+        const newHeight = aceEditor.getSession().getScreenLength() * (aceEditor.renderer.lineHeight + aceEditor.renderer.scrollBar.getWidth());
+        aceEditor.container.style.height = newHeight + 'px';
+        aceEditor.resize();
+    }
+
+    jsonEditor = ace.edit("homepageCustomStreamNamesAce");
+    var JsonMode = ace.require("ace/mode/javascript").Mode;
+    jsonEditor.session.setMode(new JsonMode());
+    jsonEditor.setTheme("ace/theme/idle_fingers");
+    jsonEditor.setShowPrintMargin(false);
+    jsonEditor.session.on('change', function(delta) {
+        $('#homepageCustomStreamNamesText').val(jsonEditor.getValue());
+        $('#customize-appearance-form-save').removeClass('hidden');
+    });
+});
+// Trakt image fix
+$(document).on('click', '.get-tmdb-image', function() {
+	let target = $(this).attr('data-target');
+	let type = $(this).hasClass('tmdb-tv') ? 'tv' : 'movie';
+	let classList = $(this).attr('class');
+	checkMetadataDiv(target,type,classList);
+});
+
+function checkMetadataDiv(target,type,classList){
+	let classArray = classList.split(/\s+/);
+	$(classArray).each(function (i,v) {
+		if(v.includes('--')){
+			let getId = v.split('--');
+			getTmdbImages(getId[1], type).success(function(data) {
+				try {
+					let response = data;
+					let bg = 'https://image.tmdb.org/t/p/w1280';
+					if(typeof response.backdrops !== 'undefined'){
+						bg = bg + response.backdrops[0]['file_path'];
+						$('.' + target + '-metadata-info .user-bg').css('background-image' , '');
+						setTimeout(function(){
+							$('.' + target + '-metadata-info .user-bg').css('background-image' , 'url('+bg+')');
+						}, 25);
+					}
+				}catch(e) {
+					console.log('tmdb Error');
+				}
+			}).fail(function(xhr) {
+				console.log('tmdb Error');
+			});
+		}
+	});
+}
+
+// Plugins settings bind
+$(document).on('click', '[id$=-settings-button]', function() {
+	let el = $(this)[0];
+	let bind = $(el).attr('data-bind');
+	let api = $(el).attr('data-api');
+	let prefix = $(el).attr('data-config-prefix');
+	if(bind == 'true' && api !== 'false' && prefix !== 'false'){
+		ajaxloader(".content-wrap","in");
+		organizrAPI2('GET',api).success(function(data) {
+			var response = data.response;
+			$('#'+prefix+'-settings-items').html(buildFormGroup(response.data));
+		}).fail(function(xhr) {
+			OrganizrApiError(xhr);
+		});
+		ajaxloader();
+	}
+});
+$(document).on('change', '[id*=-form-chooseI]', function (e) {
+	let el = $(this)[0];
+	let id = $(el).attr('id');
+	let newForm = (id.includes('new')) ? 'New' : '';
+	let pasteId = id.match(/(?:[a-z]*-){1,5}/) + 'inputImage' + newForm;
+	let newValue = $('#'+id).val();
+	if(newValue !== 'Select or type Icon'){
+		$('#'+pasteId).val(newValue);
+	}
 });

@@ -3,13 +3,19 @@
 trait JellyfinHomepageItem
 {
 	
-	public function jellyfinSettingsArray()
+	public function jellyfinSettingsArray($infoOnly = false)
 	{
-		return array(
+		$homepageInformation = [
 			'name' => 'Jellyfin',
 			'enabled' => strpos('personal', $this->config['license']) !== false,
 			'image' => 'plugins/images/tabs/jellyfin.png',
 			'category' => 'Media Server',
+			'settingsArray' => __FUNCTION__
+		];
+		if ($infoOnly) {
+			return $homepageInformation;
+		}
+		$homepageSettings = array(
 			'settings' => array(
 				'Enable' => array(
 					array(
@@ -108,6 +114,13 @@ trait JellyfinHomepageItem
 				'Misc Options' => array(
 					array(
 						'type' => 'input',
+						'name' => 'homepageJellyfinLink',
+						'label' => 'Jellyfin Homepage Link URL',
+						'value' => $this->config['homepageJellyfinLink'],
+						'help' => 'Available variables: {id} {serverId}'
+					),
+					array(
+						'type' => 'input',
 						'name' => 'jellyfinTabName',
 						'label' => 'Jellyfin Tab Name',
 						'value' => $this->config['jellyfinTabName'],
@@ -161,6 +174,7 @@ trait JellyfinHomepageItem
 				)
 			)
 		);
+		return array_merge($homepageInformation, $homepageSettings);
 	}
 	
 	public function testConnectionJellyfin()
@@ -539,8 +553,11 @@ trait JellyfinHomepageItem
 		$jellyfinItem['user'] = ($this->config['homepageShowStreamNames'] && $this->qualifyRequest($this->config['homepageShowStreamNamesAuth'])) ? @(string)$itemDetails['UserName'] : "";
 		$jellyfinItem['userThumb'] = '';
 		$jellyfinItem['userAddress'] = (isset($itemDetails['RemoteEndPoint']) ? $itemDetails['RemoteEndPoint'] : "x.x.x.x");
-		$jellyfinURL = $this->config['jellyfinURL'] . '/web/index.html#!/itemdetails.html?id=';
-		$jellyfinItem['address'] = $this->config['jellyfinTabURL'] ? rtrim($this->config['jellyfinTabURL'], '/') . "/web/#!/item/item.html?id=" . $jellyfinItem['uid'] : $jellyfinURL . $jellyfinItem['uid'] . "&serverId=" . $jellyfinItem['id'];
+		$jellfinVariablesForLink = [
+			'{id}' => $jellyfinItem['uid'],
+			'{serverId}' => $jellyfinItem['id']
+		];
+		$jellyfinItem['address'] = $this->userDefinedIdReplacementLink($this->config['homepageJellyfinLink'], $jellfinVariablesForLink);
 		$jellyfinItem['nowPlayingOriginalImage'] = 'api/v2/homepage/image?source=jellyfin&type=' . $jellyfinItem['nowPlayingImageType'] . '&img=' . $jellyfinItem['nowPlayingThumb'] . '&height=' . $nowPlayingHeight . '&width=' . $nowPlayingWidth . '&key=' . $jellyfinItem['nowPlayingKey'] . '$' . $this->randString();
 		$jellyfinItem['originalImage'] = 'api/v2/homepage/image?source=jellyfin&type=' . $jellyfinItem['imageType'] . '&img=' . $jellyfinItem['thumb'] . '&height=' . $height . '&width=' . $width . '&key=' . $jellyfinItem['key'] . '$' . $this->randString();
 		$jellyfinItem['openTab'] = $this->config['jellyfinTabURL'] && $this->config['jellyfinTabName'] ? true : false;
